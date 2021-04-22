@@ -23,4 +23,11 @@ ADD gym-pybullet-drones.tar.gz /
 RUN python3.7 -m ensurepip --default-pip && \
     python3.7 -m pip install --upgrade pip && \
 	python3.7 -m pip install -e /gym-pybullet-drones
-# ===============================================
+# =============================================== 
+
+
+# =========== Set up entrypoint script ===========
+ADD run.sh /
+RUN chmod +x /run.sh
+ENTRYPOINT ["/run.sh"]
+# ================================================

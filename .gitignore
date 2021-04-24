@@ -1,5 +1,6 @@
 # Singularity files
 *.sif
+*.simg
 
 # TODOs 
 TODOs.md

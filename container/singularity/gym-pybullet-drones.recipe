@@ -1,0 +1,8 @@
+Bootstrap: docker
+From: connorfuhrman/gym-pybullet-drones:draft 
+
+%setup
+	echo "Building singularity image from docker://connorfuhrman/gym-pybullet-drones"
+
+%post
+	echo "Well hoooowdy! You built a container :)"

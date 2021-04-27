@@ -1,6 +1,7 @@
 # Singularity files
 *.sif
 *.simg
+container/singularity/gym-pybullet-drones-sandbox/
 
 # TODOs 
 TODOs.md

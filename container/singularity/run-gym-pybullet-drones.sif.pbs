@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#PBS -W group_list=tandonr
+#PBS -q standard
+#PBS -N singularity_gym-pybullet-drones
+#PBS -j oe
+#PBS -l select=1:ncpus=1:mem=6gb
+#PBS -l walltime=00:10:00
+
+#printf "Loading singularity!\n"
+
+# Load singularity
+module load singularity
+
+# Move to directory where PBS job was submitted
+cd $PBS_O_WORKDIR
+
+printf "Running continer: ... Output beteween '=' from inside container \n"
+printf "===================================\n"
+
+# Run the contianer
+cat run_in_container.sh | singularity exec --writable gym-pybullet-drones.sif sh
+
+printf "===================================\n"
+printf "Container run done!! \n"

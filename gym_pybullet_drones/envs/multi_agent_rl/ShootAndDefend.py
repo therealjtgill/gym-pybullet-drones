@@ -2,6 +2,8 @@ import math
 import numpy as np
 from gym import spaces
 from ray.rllib.env.multi_agent_env import MultiAgentEnv, ENV_STATE
+import pybullet as pb
+import pybullet_data
 
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics, BaseAviary
 
@@ -20,17 +22,14 @@ class ShootAndDefend(BaseMultiagentAviary):
         self,
         drone_model: DroneModel=DroneModel.CF2X,
         neighbourhood_radius: float=np.inf,
-        initial_xyzs=None,
-        initial_rpys=None,
-        physics: Physics=Physics.PYB,
         freq: int=240,
         aggregate_phy_steps: int=1,
         gui=False,
         record=False, 
         obs: ObservationType=ObservationType.KIN,
-        competition_dims: np.array=np.array([4, 4, 4]),
-        shooter_dims: np.array=np.array([1, 4, 4]),
-        defender_dims: np.array=np.array([1, 4, 4])
+        field_dims: np.array=np.array([4, 4, 4]),
+        shooter_box_dims: np.array=np.array([1, 4, 4]),
+        defender_box_dims: np.array=np.array([1, 4, 4])
     ):
         """
         Initialization of a multi-agent RL environment.
@@ -59,20 +58,6 @@ class ShootAndDefend(BaseMultiagentAviary):
             Whether to save a video of the simulation in folder `files/videos/`.
         obs : ObservationType, optional
             The type of observation space (kinematic information or vision)
-        competition_dims: np.array, optional
-            The length, width, and height of the competition space. One of the
-            walls of the competition space is used as the goal plane.
-            x --> length
-            y --> width
-            z --> height
-        shooter_dims: np.array, optional
-            The length, width, and height of the shooter's bounding volume.
-            The shooter's bounding volume is attached to the plane opposite to
-            the goal plane.
-        defender_dims: np.array, optional
-            The length, width, and height of the defender's bounding volume.
-            The defender's bounding volume is attached to the plane adjacent to
-            the goal plane.
         """
 
         # Competition space
@@ -82,28 +67,59 @@ class ShootAndDefend(BaseMultiagentAviary):
         num_drones = 2
         self.defender_id = 0
         self.shooter_id = 1
-        self.comp_length, self.comp_width, self.comp_height = competition_dims
-
-        self.ball_id = self.p.createVisualShape(
-            shapeType=self.p.GEOM_SPHERE
+        self.ball_id = -1
+        
+        self.field_box = spaces.Box(
+            high=np.array([1.0, 2.0, 3]),
+            low=np.array([-1.0, -2.0, 0.0]),
+            dtype=np.float32
         )
 
-        self.goal_corners = np.array(
-            [
-                [-self.comp_length/2, -self.comp_width/2, 0],
-                [-self.comp_length/2, self.comp_width/2, 0],
-                [-self.comp_length/2, self.comp_width/2, self.comp_height],
-                [-self.comp_length/2, -self.comp_width/2, self.comp_height],
-            ]
+        self.defender_box = spaces.Box(
+            high=np.array([0.75, 2.0, 3]),
+            low=np.array([-0.75, 0.5, 0.0]),
+            dtype=np.float32
         )
+
+        self.shooter_box = spaces.Box(
+            high=np.array([0.75, -0.5, 3]),
+            low=np.array([-0.75, -2.0, 0.0]),
+            dtype=np.float32
+        )
+
+        self.goal_box = spaces.Box(
+            high=np.array([0.6, 5.0, 2]),
+            low=np.array([-0.6, 2.0, 0]),
+            dtype=np.float32
+        )
+
+        self.rpy_box = spaces.Box(
+            high=np.array([np.pi/3, np.pi/3, np.pi]),
+            low=np.array([-np.pi/3, -np.pi/3, -np.pi]),
+            dtype=np.float32
+        )
+
+        defender_pos = self.defender_box.sample()
+        shooter_pos = self.shooter_box.sample()
+
+        self.ball_launched = False
+        self.done_funcs = [
+            self._shooterOutsideBox,
+            self._defenderOutsideBox,
+            self._goalScored,
+            self._ballOutOfBounds,
+            self._ballStationary,
+            self._defenderCrashed,
+            self._shooterCrashed,
+        ]
 
         super().__init__(
             drone_model=drone_model,
             num_drones=num_drones,
             neighbourhood_radius=neighbourhood_radius,
-            initial_xyzs=initial_xyzs,
-            initial_rpys=initial_rpys,
-            physics=physics,
+            initial_xyzs=np.vstack([defender_pos, shooter_pos]),
+            initial_rpys=np.vstack([self.rpy_box.sample(), self.rpy_box.sample()]),
+            physics=Physics.PYB,
             freq=freq,
             aggregate_phy_steps=aggregate_phy_steps,
             gui=gui,
@@ -132,7 +148,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         defender_action_size = 4
         shooter_action_size = 5
         shooter_action_space = spaces.Box(
-            low=[-1, -1, -1, -1, 0],
+            low=np.array([-1, -1, -1, -1, 0]),
             high=np.ones(shooter_action_size),
             dtype=np.float32
         )
@@ -169,6 +185,53 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     ################################################################################
     
+    def reset(self):
+        super(ShootAndDefend, self).reset()
+
+    def _preprocessAction(self, actions):
+        if actions[self.shooter_id][4] > 0:
+            self._launchBall()
+        movement_actions = {k: v[0:4] for k, v in actions.items()}
+        return super()._preprocessAction(movement_actions)
+
+    def _shooterOutsideBox(self):
+        ret_val = not self.shooter_box.contains(self.pos[self.shooter_id])
+        if ret_val:
+            print("Shooter outside box!")
+        return ret_val
+
+    def _defenderOutsideBox(self):
+        ret_val = not self.defender_box.contains(self.pos[self.defender_id])
+        if ret_val:
+            print("Defender outside box!")
+        return ret_val
+
+    def _goalScored(self):
+        ret_val = self.goal_box.contains(self._getBallState()[0:3])
+        if ret_val:
+            print("Goal scored!")
+        return ret_val
+
+    def _ballOutOfBounds(self):
+        ball_pos = self._getBallState()[0:3]
+        ret_val = not self.field_box.contains(ball_pos) and not self._goalScored()
+        if ret_val:
+            print("Ball out of bounds!")
+        return ret_val
+
+    def _ballStationary(self):
+        ball_vel = self._getBallState()[10:13]
+        ret_val = np.linalg.norm(ball_vel) < 1e-6
+        if ret_val:
+            print("Ball stationary!")
+        return ret_val
+
+    def _shooterCrashed(self):
+        return self.pos[self.shooter_id][2] <= 1e-6
+
+    def _defenderCrashed(self):
+        return self.pos[self.defender_id][2] <= 1e-6
+
     def _computeDone(self):
         """
         Computes the current done value(s).
@@ -180,8 +243,9 @@ class ShootAndDefend(BaseMultiagentAviary):
             one additional boolean value for key "__all__".
 
         """
-        bool_val = True if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC else False
-        done = {i: bool_val for i in range(self.NUM_DRONES)}
+        sim_done = True if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC else False
+        dones = [f() for f in self.done_funcs]
+        done = {i: sim_done or any(dones) for i in range(self.NUM_DRONES)}
         done["__all__"] = True if True in done.values() else False
         return done
 
@@ -231,16 +295,6 @@ class ShootAndDefend(BaseMultiagentAviary):
         clipped_rp = np.clip(state[7:9], -MAX_PITCH_ROLL, MAX_PITCH_ROLL)
         clipped_vel_xy = np.clip(state[10:12], -MAX_LIN_VEL_XY, MAX_LIN_VEL_XY)
         clipped_vel_z = np.clip(state[12], -MAX_LIN_VEL_Z, MAX_LIN_VEL_Z)
-
-        if self.GUI:
-            self._clipAndNormalizeStateWarning(
-                state,
-                clipped_pos_xy,
-                clipped_pos_z,
-                clipped_rp,
-                clipped_vel_xy,
-                clipped_vel_z
-            )
 
         normalized_pos_xy = clipped_pos_xy / MAX_XY
         normalized_pos_z = clipped_pos_z / MAX_Z
@@ -293,3 +347,64 @@ class ShootAndDefend(BaseMultiagentAviary):
             print("[WARNING] it", self.step_counter, "in FlockAviary._clipAndNormalizeState(), clipped xy velocity [{:.2f} {:.2f}]".format(state[10], state[11]))
         if not(clipped_vel_z == np.array(state[12])).all():
             print("[WARNING] it", self.step_counter, "in FlockAviary._clipAndNormalizeState(), clipped z velocity [{:.2f}]".format(state[12]))
+
+    def _computeObs(self):
+        """
+        Kinematic states for each drone and the ball.
+        """
+        obs_12 = np.zeros((self.NUM_DRONES + 1,12))
+        for i in range(self.NUM_DRONES):
+            obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
+            obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
+        obs_12[-1, :] = self._getBallObs()
+        print("drone IDs:", self.DRONE_IDS)
+        obs_dict = {i: obs_12 for i in range(self.NUM_DRONES)}
+        return obs_dict
+
+    def _getBallState(self):
+        ball_state = np.zeros(20)
+        if not self.ball_launched:
+            shooter_state = self._getDroneStateVector(self.shooter_id)
+            R_gs2b = np.array(pb.getMatrixFromQuaternion(shooter_state[3:7])).reshape((3,3))
+            ball_pos = 1.5*R_gs2b[:, 0]*self.L + shooter_state[0:3]
+            ball_state = shooter_state
+            ball_state[0:3] = ball_pos
+        else:
+            ball_pos, ball_quat = pb.getBasePositionAndOrientation(self.ball_id, physicsClientId=self.CLIENT)
+            ball_rpy = pb.getEulerFromQuaternion(ball_quat)
+            ball_vel, ball_ang_v = pb.getBaseVelocity(self.ball_id, physicsClientId=self.CLIENT)
+            ball_state = np.hstack(
+                ball_pos, ball_quat, ball_rpy, ball_vel, ball_ang_v, np.zeros(4)
+            )
+        return ball_state
+
+    def _getBallObs(self):
+        ball_obs = np.zeros(12)
+        ball_state = self._getBallState()
+        ball_obs_full = self._clipAndNormalizeState(ball_state)
+        ball_obs = np.hstack(
+            [ball_obs_full[0:3], ball_obs_full[7:10], np.zeros(3), np.zeros(3)]
+        ).reshape(12,)
+        return ball_obs
+
+    def _launchBall(self):
+        R_gs2b = pb.getMatrixFromQuaternion(shooter_state[3:7])
+        ball_pos = 1.5*R_gs2b[:, 0]*self.L + shooter_state[0:3]
+        self.ball_id = pb.loadURDF("sphere2.urdf",
+            ball_pos,
+            pb.getQuaternionFromEuler([0,0,0]),
+            globalScaling=0.0625,
+            physicsClientId=self.CLIENT
+        )
+        pb.changeDynamics(self.ball_id, -1, mass=0.1)
+        shooter_vel, _ = pb.getBaseVelocity(self.shooter_id, physicsClient=self.CLIENT)
+        ball_force_unit = np.linalg.norm(shooter_vel)
+        ball_force = 50*force_unit
+        pb.applyExternalForce(
+            self.ball_id,
+            -1,
+            forceObj=ball_force,
+            posObj=[0, 0, 0],
+            flags=pb.LINK_FRAME,
+            physicsClientId=self.CLIENT
+        )

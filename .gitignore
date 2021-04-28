@@ -1,4 +1,9 @@
-# TODOs 
+# Virtual environment
+gym_env
+# Pycharm file
+.idea
+
+# TODOs/pycharm-2021.1.1/bin/pycharm.sh
 TODOs.md
 examples/debug.py
 examples/test.py

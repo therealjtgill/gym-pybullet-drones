@@ -2,6 +2,7 @@
 
 printf "I'm running inside the singularity container motha-fucka!\n"
 
+: '
 # =================================================================================
 # Example: Run fly.py for 5 seconds w/out GUI, make a video, and export that video
 # to the current working directory where docker run is called. 
@@ -19,3 +20,8 @@ cd files/videos
 cp ffmpeg_png2mp4.sh video*
 cd video* && sh ffmpeg_png2mp4.sh
 # =================================================================================
+'
+
+# Run learn.py --rllib to check PPO 
+cd /gym-pybullet-drones
+python3.7 examples/learn.py --rllib=True 

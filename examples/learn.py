@@ -75,8 +75,8 @@ if __name__ == "__main__":
         ray.shutdown()
 
     #### Show (and record a video of) the model's performance ##
-    env = TakeoffAviary(gui=True,
-                        record=False
+    env = TakeoffAviary(gui=False,
+                        record=True
                         )
     logger = Logger(logging_freq_hz=int(env.SIM_FREQ/env.AGGR_PHY_STEPS),
                     num_drones=1

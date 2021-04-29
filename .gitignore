@@ -4,7 +4,13 @@
 container/singularity/gym-pybullet-drones-sandbox/
 singularity_gym-pybullet-drones
 
-# TODOs 
+# TODOs
+# Virtual environment
+gym_env
+# Pycharm file
+.idea
+
+# TODOs
 TODOs.md
 examples/debug.py
 examples/test.py

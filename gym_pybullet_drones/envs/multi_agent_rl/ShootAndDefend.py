@@ -90,8 +90,10 @@ class ShootAndDefend(BaseMultiagentAviary):
         )
 
         self.rpy_box = spaces.Box(
-            high=np.array([np.pi/3, np.pi/3, np.pi]),
-            low=np.array([-np.pi/3, -np.pi/3, -np.pi]),
+            # high=np.array([np.pi/3, np.pi/3, np.pi]),
+            # low=np.array([-np.pi/3, -np.pi/3, -np.pi]),
+            high=np.zeros(3),
+            low=np.zeros(3),
             dtype=np.float32
         )
 
@@ -107,6 +109,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             self._ballStationary,
             self._defenderCrashed,
             self._shooterCrashed,
+            self._timeExpired,
         ]
 
         super().__init__(
@@ -179,15 +182,17 @@ class ShootAndDefend(BaseMultiagentAviary):
             -10*self._shooterCrashed() + \
             -10*self._shooterOutsideBox() + \
             -3*self._ballOutOfBounds() + \
-            -1*self._ballStationary()
+            -1*self._ballStationary() + \
+            -8*self._timeExpired()
 
         defender_rewards = 1*self._shooterOutsideBox() + \
-            1*self._shooterCrashed + \
+            1*self._shooterCrashed() + \
             -5*self._goalScored() + \
             -10*self._defenderCrashed() + \
             -10*self._defenderOutsideBox() + \
             5*self._ballOutOfBounds() + \
-            5*self._ballStationary()
+            5*self._ballStationary() + \
+            -8*self._timeExpired()
 
         rewards[self.shooter_id] = shooter_rewards
         rewards[self.defender_id] = defender_rewards
@@ -249,6 +254,9 @@ class ShootAndDefend(BaseMultiagentAviary):
     def _defenderCrashed(self):
         return self.pos[self.defender_id][2] <= 1e-6
 
+    def _timeExpired(self):
+        return self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC
+
     def _computeDone(self):
         """
         Computes the current done value(s).
@@ -260,7 +268,6 @@ class ShootAndDefend(BaseMultiagentAviary):
             one additional boolean value for key "__all__".
 
         """
-        sim_done = True if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC else False
         dones = [f() for f in self.done_funcs]
         done = {i: sim_done or any(dones) for i in range(self.NUM_DRONES)}
         done["__all__"] = True if True in done.values() else False
@@ -374,7 +381,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
             obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
         obs_12[-1, :] = self._getBallObs()
-        print("drone IDs:", self.DRONE_IDS)
+        # print("drone IDs:", self.DRONE_IDS)
         obs_dict = {i: obs_12 for i in range(self.NUM_DRONES)}
         return obs_dict
 
@@ -405,6 +412,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         return ball_obs
 
     def _launchBall(self):
+        print("Ball launched!!")
         if self.ball_launched:
             return
         R_gs2b = pb.getMatrixFromQuaternion(shooter_state[3:7])

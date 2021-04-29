@@ -6,8 +6,6 @@ import pybullet as pb
 import pybullet_data
 
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics, BaseAviary
-
-from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics, BaseAviary
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType
 from gym_pybullet_drones.envs.multi_agent_rl.BaseMultiagentAviary import BaseMultiagentAviary
 
@@ -432,7 +430,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             ball_rpy = pb.getEulerFromQuaternion(ball_quat)
             ball_vel, ball_ang_v = pb.getBaseVelocity(self.ball_id, physicsClientId=self.CLIENT)
             ball_state = np.hstack(
-                ball_pos, ball_quat, ball_rpy, ball_vel, ball_ang_v, np.zeros(4)
+                [ball_pos, ball_quat, ball_rpy, ball_vel, ball_ang_v, np.zeros(4)]
             )
         return ball_state
 
@@ -446,9 +444,9 @@ class ShootAndDefend(BaseMultiagentAviary):
         return ball_obs
 
     def _launchBall(self):
-        print("Ball launched!!")
         if self.ball_launched:
             return
+        print("Ball launched!!")
         shooter_state = self._getDroneStateVector(self.shooter_id)
         R_gs2b = np.array(
             pb.getMatrixFromQuaternion(shooter_state[3:7])
@@ -465,12 +463,17 @@ class ShootAndDefend(BaseMultiagentAviary):
             self.shooter_id,
             physicsClientId=self.CLIENT
         )
-        ball_force_unit = np.linalg.norm(shooter_vel)
+        print("Shooter vel:", shooter_vel)
+        shooter_vel = np.array(shooter_vel)
+        ball_force_unit = shooter_vel/(np.linalg.norm(shooter_vel) + 1e-6)
         ball_force = 50*ball_force_unit
+        print("Ball's pybullet ID:", self.ball_id)
+        print("Force on ball:", ball_force)
+
         pb.applyExternalForce(
             self.ball_id,
             -1,
-            forceObj=ball_force,
+            forceObj=ball_force.tolist(),
             posObj=[0, 0, 0],
             flags=pb.LINK_FRAME,
             physicsClientId=self.CLIENT

@@ -77,12 +77,12 @@ if __name__ == "__main__":
         record=ARGS.record_video,
     )
 
-    ray.init()
+    ray.init(local_mode=True)
     obs_space = env.observation_space
     action_space = env.action_space
     register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
     config = ppo.DEFAULT_CONFIG.copy()
-    config["num_workers"] = 1
+    config["num_workers"] = 0
     config["framework"] = "torch"
     config["env"] = "shoot-and-defend-v0"
     config["multiagent"] = {
@@ -115,9 +115,13 @@ if __name__ == "__main__":
     }
     agent = ppo.PPOTrainer(config)
 
-    for i in range(10):
+    for i in range(1000):
+        print("Iteration number:", i)
         results = agent.train()
 
+        if i % 10 == 0:
+            checkpoint = agent.save()
+            print("Checkpoint saved at:", checkpoint)
 
     #### Obtain the PyBullet Client ID from the environment ####
     PYB_CLIENT = env.getPyBulletClient()

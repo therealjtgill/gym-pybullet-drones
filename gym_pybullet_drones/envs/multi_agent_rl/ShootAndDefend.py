@@ -269,7 +269,7 @@ class ShootAndDefend(BaseMultiagentAviary):
 
         """
         dones = [f() for f in self.done_funcs]
-        done = {i: sim_done or any(dones) for i in range(self.NUM_DRONES)}
+        done = {i: any(dones) for i in range(self.NUM_DRONES)}
         done["__all__"] = True if True in done.values() else False
         return done
 

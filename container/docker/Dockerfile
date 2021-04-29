@@ -22,7 +22,7 @@ ADD gym-pybullet-drones.tar.gz /
 # ============= Install Python Deps =============
 RUN python3.7 -m ensurepip --default-pip && \
     python3.7 -m pip install --upgrade pip && \
-	python3.7 -m pip install -e /gym-pybullet-drones
+	python3.7 -m pip install -e gym-pybullet-drones
 # =============================================== 
 
 

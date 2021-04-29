@@ -77,12 +77,12 @@ if __name__ == "__main__":
         record=ARGS.record_video,
     )
 
-    ray.init(local_mode=True)
+    ray.init(local_mode=False)
     obs_space = env.observation_space
     action_space = env.action_space
     register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
     config = ppo.DEFAULT_CONFIG.copy()
-    config["num_workers"] = 0
+    config["num_workers"] = 4
     config["framework"] = "torch"
     config["env"] = "shoot-and-defend-v0"
     config["multiagent"] = {

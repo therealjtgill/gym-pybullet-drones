@@ -4,8 +4,8 @@
 #PBS -q standard
 #PBS -N singularity_gym-pybullet-drones
 #PBS -j oe
-#PBS -l select=1:ncpus=1:mem=6gb
-#PBS -l walltime=00:10:00
+#PBS -l select=1:ncpus=4:mem=10gb:ngpus=1:pcmem=16gb
+#PBS -l walltime=00:15:00
 
 #printf "Loading singularity!\n"
 

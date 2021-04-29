@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: connorfuhrman/gym-pybullet-drones:draft 
+From: connorfuhrman/gym-pybullet-drones:latest
 
 %setup
 	echo "Building singularity image from docker://connorfuhrman/gym-pybullet-drones"

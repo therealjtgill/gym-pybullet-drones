@@ -131,7 +131,7 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _actionSpace(self):
         """
-        Overloaded from the BaseMultiagentAviary class. The defender has the
+        Overridden from the BaseMultiagentAviary class. The defender has the
         standard four actions (one for each motor), but the shooter has four
         motor RPM commands and a single shoot command. The shoot command
         releases a ball from the shooter's grasp with the shooter's velocity at
@@ -163,6 +163,34 @@ class ShootAndDefend(BaseMultiagentAviary):
             }
         )
         return action_space
+
+    ################################################################################
+
+    def _observationSpace(self):
+        """
+        Returns the observation space of the environment.
+
+        [obs[0:3], obs[7:10], obs[10:13], obs[13:16]]
+        Observations are [pos, rpy, vel, ang_vel] per drone and for the ball.
+
+        Returns
+        -------
+        dict[int, ndarray]
+            A Dict with NUM_DRONES entries indexed by Id in integer format,
+            each a Box() is shape (36,) with 12 observed states per entity in
+            the environment.
+        """
+        #### OBS SPACE OF SIZE 12 per entity
+        return spaces.Dict(
+            {
+                i: spaces.Box(
+                    low=np.array([-1,-1,0, -1,-1,-1, -1,-1,-1, -1,-1,-1]*3),
+                    high=np.array([1,1,1, 1,1,1, 1,1,1, 1,1,1]*3),
+                    dtype=np.float32
+                )
+                for i in range(self.NUM_DRONES)
+            }
+        )
 
     ################################################################################
 
@@ -207,8 +235,9 @@ class ShootAndDefend(BaseMultiagentAviary):
         shooter_rpy = self.rpy_box.sample()
         self.ball_launched = False
         self.INIT_XYZS = np.vstack([defender_pos, shooter_pos])
-        self.INIT_RPYS = np.vstack([defender_rpy, shooter_rpy]),
+        self.INIT_RPYS = np.vstack([defender_rpy, shooter_rpy])
         super(ShootAndDefend, self).reset()
+        return self._computeObs()
 
     def _preprocessAction(self, actions):
         if actions[self.shooter_id][4] > 0.5:
@@ -255,7 +284,10 @@ class ShootAndDefend(BaseMultiagentAviary):
         return self.pos[self.defender_id][2] <= 1e-6
 
     def _timeExpired(self):
-        return self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC
+        ret_val = self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC
+        if ret_val:
+            print("Timer expired!")
+        return ret_val
 
     def _computeDone(self):
         """
@@ -381,15 +413,17 @@ class ShootAndDefend(BaseMultiagentAviary):
             obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
             obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
         obs_12[-1, :] = self._getBallObs()
-        # print("drone IDs:", self.DRONE_IDS)
-        obs_dict = {i: obs_12 for i in range(self.NUM_DRONES)}
+        # Flatten out the observations made by each drone.
+        obs_dict = {i: np.reshape(obs_12, -1) for i in range(self.NUM_DRONES)}
         return obs_dict
 
     def _getBallState(self):
         ball_state = np.zeros(20)
         if not self.ball_launched:
             shooter_state = self._getDroneStateVector(self.shooter_id)
-            R_gs2b = np.array(pb.getMatrixFromQuaternion(shooter_state[3:7])).reshape((3,3))
+            R_gs2b = np.array(
+                pb.getMatrixFromQuaternion(shooter_state[3:7])
+            ).reshape((3,3))
             ball_pos = 1.5*R_gs2b[:, 0]*self.L + shooter_state[0:3]
             ball_state = shooter_state
             ball_state[0:3] = ball_pos
@@ -415,7 +449,10 @@ class ShootAndDefend(BaseMultiagentAviary):
         print("Ball launched!!")
         if self.ball_launched:
             return
-        R_gs2b = pb.getMatrixFromQuaternion(shooter_state[3:7])
+        shooter_state = self._getDroneStateVector(self.shooter_id)
+        R_gs2b = np.array(
+            pb.getMatrixFromQuaternion(shooter_state[3:7])
+        ).reshape((3,3))
         ball_pos = 1.5*R_gs2b[:, 0]*self.L + shooter_state[0:3]
         self.ball_id = pb.loadURDF("sphere2.urdf",
             ball_pos,
@@ -424,9 +461,12 @@ class ShootAndDefend(BaseMultiagentAviary):
             physicsClientId=self.CLIENT
         )
         pb.changeDynamics(self.ball_id, -1, mass=0.1)
-        shooter_vel, _ = pb.getBaseVelocity(self.shooter_id, physicsClient=self.CLIENT)
+        shooter_vel, _ = pb.getBaseVelocity(
+            self.shooter_id,
+            physicsClientId=self.CLIENT
+        )
         ball_force_unit = np.linalg.norm(shooter_vel)
-        ball_force = 50*force_unit
+        ball_force = 50*ball_force_unit
         pb.applyExternalForce(
             self.ball_id,
             -1,

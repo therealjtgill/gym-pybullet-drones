@@ -22,7 +22,6 @@ register(
 
 
 
-
 register(
     id='takeoff-aviary-v0',
     entry_point='gym_pybullet_drones.envs.single_agent_rl:TakeoffAviary',
@@ -59,4 +58,9 @@ register(
 register(
     id='meetup-aviary-v0',
     entry_point='gym_pybullet_drones.envs.multi_agent_rl:MeetupAviary',
+)
+
+register(
+    id='shoot-and-defend-v0',
+    entry_point='gym_pybullet_drones.envs.multi_agent_rl:ShootAndDefend',
 )

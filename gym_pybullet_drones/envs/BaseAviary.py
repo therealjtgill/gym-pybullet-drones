@@ -101,6 +101,7 @@ class BaseAviary(gym.Env):
             Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
 
         """
+        print("num drones:", num_drones)
         #### Constants #############################################
         self.G = 9.8
         self.RAD2DEG = 180/np.pi
@@ -379,6 +380,7 @@ class BaseAviary(gym.Env):
         info = self._computeInfo()
         #### Advance the step counter ##############################
         self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
+
         return obs, reward, done, info
     
     ################################################################################
@@ -482,11 +484,18 @@ class BaseAviary(gym.Env):
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.CLIENT)
         #### Load ground plane, drone and obstacles models #########
         self.PLANE_ID = p.loadURDF("plane.urdf", physicsClientId=self.CLIENT)
-        self.DRONE_IDS = np.array([p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/../assets/"+self.URDF,
-                                              self.INIT_XYZS[i,:],
-                                              p.getQuaternionFromEuler(self.INIT_RPYS[i,:]),
-                                              physicsClientId=self.CLIENT
-                                              ) for i in range(self.NUM_DRONES)])
+        print(self.INIT_RPYS)
+        self.DRONE_IDS = np.array(
+            [
+                p.loadURDF(
+                    os.path.dirname(os.path.abspath(__file__)) + "/../assets/" + self.URDF,
+                    self.INIT_XYZS[i,:],
+                    p.getQuaternionFromEuler(self.INIT_RPYS[i,:]),
+                    physicsClientId=self.CLIENT
+                )
+                for i in range(self.NUM_DRONES)
+            ]
+        )
         for i in range(self.NUM_DRONES):
             #### Show the frame of reference of the drone, note that ###
             #### It severly slows down the GUI #########################

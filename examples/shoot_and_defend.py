@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('--aggregate',          default=True,       type=str2bool,      help='Whether to aggregate physics steps (default: False)', metavar='')
     parser.add_argument('--simulation_freq_hz', default=240,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
     parser.add_argument('--control_freq_hz',    default=48,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
+    parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
     ARGS = parser.parse_args()
 
     #### Initialize the simulation #############################
@@ -87,51 +88,49 @@ if __name__ == "__main__":
         record=ARGS.record_video,
     )
 
-    ray.init(local_mode=False)
     obs_space = env.observation_space
     action_space = env.action_space
-    register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
-    config = ppo.DEFAULT_CONFIG.copy()
-    # config["num_workers"] = 4
-    from pprint import pprint
-    print("config:")
-    pprint(config)
-    config["framework"] = "torch"
-    config["env"] = "shoot-and-defend-v0"
-    config["multiagent"] = {
-        "policies_to_train": ["shooter", "defender"],
-        "policies": {
-            "shooter": (
-                None,
-                obs_space[env.shooter_id],
-                action_space[env.shooter_id],
-                {
-                    "model": {
-                        "fcnet_hiddens": [128, 64],
-                        "fcnet_activation": "relu"
+
+    if ARGS.checkpoint is not None:
+        ray.init(local_mode=False)
+        register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
+        config = ppo.DEFAULT_CONFIG.copy()
+        config["framework"] = "torch"
+        config["env"] = "shoot-and-defend-v0"
+        config["multiagent"] = {
+            "policies_to_train": ["shooter", "defender"],
+            "policies": {
+                "shooter": (
+                    None,
+                    obs_space[env.shooter_id],
+                    action_space[env.shooter_id],
+                    {
+                        "model": {
+                            "fcnet_hiddens": [128, 64],
+                            "fcnet_activation": "relu"
+                        }
                     }
-                }
-            ),
-            "defender": (
-                None,
-                obs_space[env.defender_id],
-                action_space[env.defender_id],
-                {
-                    "model": {
-                        "fcnet_hiddens": [128, 64],
-                        "fcnet_activation": "relu"
+                ),
+                "defender": (
+                    None,
+                    obs_space[env.defender_id],
+                    action_space[env.defender_id],
+                    {
+                        "model": {
+                            "fcnet_hiddens": [128, 64],
+                            "fcnet_activation": "relu"
+                        }
                     }
-                }
-            )
-        },
-        "policy_mapping_fn": select_policy
-    }
-    agent = ppo.PPOTrainer(config, env="shoot-and-defend-v0")
-    agent.restore('/home/jg/ray_results/PPO_shoot-and-defend-v0_2021-04-29_00-11-49svk5z1ei/checkpoint_000991/checkpoint-991')
-    # print(agent.get_policy("shooter").model)
-    # print(agent.get_policy("defender").model)
-    defender_policy = agent.get_policy("defender")
-    shooter_policy = agent.get_policy("shooter")
+                )
+            },
+            "policy_mapping_fn": select_policy
+        }
+        agent = ppo.PPOTrainer(config, env="shoot-and-defend-v0")
+        agent.restore(ARGS.checkpoint)
+        # print(agent.get_policy("shooter").model)
+        # print(agent.get_policy("defender").model)
+        defender_policy = agent.get_policy("defender")
+        shooter_policy = agent.get_policy("shooter")
 
     # import pdb
     # pdb.set_trace()
@@ -165,10 +164,11 @@ if __name__ == "__main__":
 
         #### Make it rain rubber ducks #############################
         # if i/env.SIM_FREQ>5 and i%10==0 and i/env.SIM_FREQ<10: p.loadURDF("duck_vhacd.urdf", [0+random.gauss(0, 0.3),-0.5+random.gauss(0, 0.3),3], p.getQuaternionFromEuler([random.randint(0,360),random.randint(0,360),random.randint(0,360)]), physicsClientId=PYB_CLIENT)
-        action = {
-            env.shooter_id: shooter_policy.compute_single_action(obs[env.shooter_id])[0],
-            env.defender_id: defender_policy.compute_single_action(obs[env.shooter_id])[0]
-        }
+        if ARGS.checkpoint is not None:
+            action = {
+                env.shooter_id: shooter_policy.compute_single_action(obs[env.shooter_id])[0],
+                env.defender_id: defender_policy.compute_single_action(obs[env.shooter_id])[0]
+            }
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
 

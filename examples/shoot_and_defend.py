@@ -25,6 +25,9 @@ import random
 import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
+import ray
+from ray.tune import register_env
+from ray.rllib.agents import ppo
 
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
@@ -34,6 +37,13 @@ from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.control.SimplePIDControl import SimplePIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
+
+def select_policy(agent_id):
+    if agent_id == 0:
+        return "defender"
+    else:
+        return "shooter"
+
 
 if __name__ == "__main__":
 
@@ -67,27 +77,6 @@ if __name__ == "__main__":
         TARGET_POS[i, :] = R*np.cos((i/NUM_WP)*(2*np.pi)+np.pi/2)+INIT_XYZS[0, 0], R*np.sin((i/NUM_WP)*(2*np.pi)+np.pi/2)-R+INIT_XYZS[0, 1], 0
     wp_counters = np.array([int((i*NUM_WP/6)%NUM_WP) for i in range(num_drones)])
 
-    #### Debug trajectory ######################################
-    #### Uncomment alt. target_pos in .computeControlFromState()
-    # INIT_XYZS = np.array([[.3 * i, 0, .1] for i in range(num_drones)])
-    # INIT_RPYS = np.array([[0, 0,  i * (np.pi/3)/num_drones] for i in range(num_drones)])
-    # NUM_WP = ARGS.control_freq_hz*15
-    # TARGET_POS = np.zeros((NUM_WP,3))
-    # for i in range(NUM_WP):
-    #     if i < NUM_WP/6:
-    #         TARGET_POS[i, :] = (i*6)/NUM_WP, 0, 0.5*(i*6)/NUM_WP
-    #     elif i < 2 * NUM_WP/6:
-    #         TARGET_POS[i, :] = 1 - ((i-NUM_WP/6)*6)/NUM_WP, 0, 0.5 - 0.5*((i-NUM_WP/6)*6)/NUM_WP
-    #     elif i < 3 * NUM_WP/6:
-    #         TARGET_POS[i, :] = 0, ((i-2*NUM_WP/6)*6)/NUM_WP, 0.5*((i-2*NUM_WP/6)*6)/NUM_WP
-    #     elif i < 4 * NUM_WP/6:
-    #         TARGET_POS[i, :] = 0, 1 - ((i-3*NUM_WP/6)*6)/NUM_WP, 0.5 - 0.5*((i-3*NUM_WP/6)*6)/NUM_WP
-    #     elif i < 5 * NUM_WP/6:
-    #         TARGET_POS[i, :] = ((i-4*NUM_WP/6)*6)/NUM_WP, ((i-4*NUM_WP/6)*6)/NUM_WP, 0.5*((i-4*NUM_WP/6)*6)/NUM_WP
-    #     elif i < 6 * NUM_WP/6:
-    #         TARGET_POS[i, :] = 1 - ((i-5*NUM_WP/6)*6)/NUM_WP, 1 - ((i-5*NUM_WP/6)*6)/NUM_WP, 0.5 - 0.5*((i-5*NUM_WP/6)*6)/NUM_WP
-    # wp_counters = np.array([0 for i in range(num_drones)])
-
     #### Create the environment with or without video capture ##
     env = ShootAndDefend(
         drone_model=ARGS.drone,
@@ -97,6 +86,55 @@ if __name__ == "__main__":
         gui=ARGS.gui,
         record=ARGS.record_video,
     )
+
+    ray.init(local_mode=False)
+    obs_space = env.observation_space
+    action_space = env.action_space
+    register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
+    config = ppo.DEFAULT_CONFIG.copy()
+    # config["num_workers"] = 4
+    from pprint import pprint
+    print("config:")
+    pprint(config)
+    config["framework"] = "torch"
+    config["env"] = "shoot-and-defend-v0"
+    config["multiagent"] = {
+        "policies_to_train": ["shooter", "defender"],
+        "policies": {
+            "shooter": (
+                None,
+                obs_space[env.shooter_id],
+                action_space[env.shooter_id],
+                {
+                    "model": {
+                        "fcnet_hiddens": [128, 64],
+                        "fcnet_activation": "relu"
+                    }
+                }
+            ),
+            "defender": (
+                None,
+                obs_space[env.defender_id],
+                action_space[env.defender_id],
+                {
+                    "model": {
+                        "fcnet_hiddens": [128, 64],
+                        "fcnet_activation": "relu"
+                    }
+                }
+            )
+        },
+        "policy_mapping_fn": select_policy
+    }
+    agent = ppo.PPOTrainer(config, env="shoot-and-defend-v0")
+    agent.restore('/home/jg/ray_results/PPO_shoot-and-defend-v0_2021-04-29_00-11-49svk5z1ei/checkpoint_000991/checkpoint-991')
+    # print(agent.get_policy("shooter").model)
+    # print(agent.get_policy("defender").model)
+    defender_policy = agent.get_policy("defender")
+    shooter_policy = agent.get_policy("shooter")
+
+    # import pdb
+    # pdb.set_trace()
 
     #### Obtain the PyBullet Client ID from the environment ####
     PYB_CLIENT = env.getPyBulletClient()
@@ -121,12 +159,16 @@ if __name__ == "__main__":
     }
     done = {"__all__": False}
     START = time.time()
+    obs = env.reset()
     # for i in range(0, int(ARGS.duration_sec*env.SIM_FREQ), AGGR_PHY_STEPS):
     while not done["__all__"]:
 
         #### Make it rain rubber ducks #############################
         # if i/env.SIM_FREQ>5 and i%10==0 and i/env.SIM_FREQ<10: p.loadURDF("duck_vhacd.urdf", [0+random.gauss(0, 0.3),-0.5+random.gauss(0, 0.3),3], p.getQuaternionFromEuler([random.randint(0,360),random.randint(0,360),random.randint(0,360)]), physicsClientId=PYB_CLIENT)
-
+        action = {
+            env.shooter_id: shooter_policy.compute_single_action(obs[env.shooter_id])[0],
+            env.defender_id: defender_policy.compute_single_action(obs[env.shooter_id])[0]
+        }
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
 

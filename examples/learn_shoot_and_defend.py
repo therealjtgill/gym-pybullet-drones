@@ -51,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--aggregate',          default=True,       type=str2bool,      help='Whether to aggregate physics steps (default: False)', metavar='')
     parser.add_argument('--simulation_freq_hz', default=240,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
     parser.add_argument('--control_freq_hz',    default=48,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
+    parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
     ARGS = parser.parse_args()
 
     #### Initialize the simulation #############################
@@ -114,10 +115,19 @@ if __name__ == "__main__":
         "policy_mapping_fn": select_policy
     }
     agent = ppo.PPOTrainer(config)
+    if ARGS.checkpoint:
+        agent.restore(ARGS.checkpoint)
 
-    for i in range(1000):
+    for i in range(10000):
         print("Iteration number:", i)
         results = agent.train()
+        print("[INFO] {:d}: episode_reward max {:f} min {:f} mean {:f}".format(
+                i,
+                results["episode_reward_max"],
+                results["episode_reward_min"],
+                results["episode_reward_mean"]
+            )
+        )
 
         if i % 10 == 0:
             checkpoint = agent.save()

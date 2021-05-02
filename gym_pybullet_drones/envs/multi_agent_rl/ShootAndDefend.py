@@ -27,7 +27,8 @@ class ShootAndDefend(BaseMultiagentAviary):
         obs: ObservationType=ObservationType.KIN,
         field_dims: np.array=np.array([4, 4, 4]),
         shooter_box_dims: np.array=np.array([1, 4, 4]),
-        defender_box_dims: np.array=np.array([1, 4, 4])
+        defender_box_dims: np.array=np.array([1, 4, 4]),
+        space_multiplier: float=1
     ):
         """
         Initialization of a multi-agent RL environment.
@@ -59,31 +60,32 @@ class ShootAndDefend(BaseMultiagentAviary):
         """
 
         num_drones = 2
+        self.space_multiplier = space_multiplier
         self.defender_id = 0
         self.shooter_id = 1
         self.ball_id = -1
         
         self.field_box = spaces.Box(
-            high=np.array([1.0, 2.0, 3]),
-            low=np.array([-1.0, -2.0, 0.0]),
+            high=self.space_multiplier*np.array([1.0, 2.0, 3]),
+            low=self.space_multiplier*np.array([-1.0, -2.0, 0.0]),
             dtype=np.float32
         )
 
         self.defender_box = spaces.Box(
-            high=np.array([0.75, 2.0, 3]),
-            low=np.array([-0.75, 0.5, 0.0]),
+            high=self.space_multiplier*np.array([0.75, 2.0, 3]),
+            low=self.space_multiplier*np.array([-0.75, 0.5, 0.0]),
             dtype=np.float32
         )
 
         self.shooter_box = spaces.Box(
-            high=np.array([0.75, -0.5, 3]),
-            low=np.array([-0.75, -2.0, 0.0]),
+            high=self.space_multiplier*np.array([0.75, -0.5, 3]),
+            low=self.space_multiplier*np.array([-0.75, -2.0, 0.0]),
             dtype=np.float32
         )
 
         self.goal_box = spaces.Box(
-            high=np.array([0.6, 5.0, 2]),
-            low=np.array([-0.6, 2.0, 0]),
+            high=self.space_multiplier*np.array([0.6, 5.0, 2]),
+            low=self.space_multiplier*np.array([-0.6, 2.0, 0]),
             dtype=np.float32
         )
 
@@ -209,7 +211,8 @@ class ShootAndDefend(BaseMultiagentAviary):
             -10*self._shooterOutsideBox() + \
             -3*self._ballOutOfBounds() + \
             -1*self._ballStationary() + \
-            -8*self._timeExpired()
+            -8*self._timeExpired() + \
+            1e-2*self._shooterAttitudeReward()
 
         defender_rewards = 1*self._shooterOutsideBox() + \
             1*self._shooterCrashed() + \
@@ -218,7 +221,8 @@ class ShootAndDefend(BaseMultiagentAviary):
             -10*self._defenderOutsideBox() + \
             5*self._ballOutOfBounds() + \
             5*self._ballStationary() + \
-            -8*self._timeExpired()
+            -8*self._timeExpired() + \
+            1e-2*self._defenderAttitudeReward()
 
         rewards[self.shooter_id] = shooter_rewards
         rewards[self.defender_id] = defender_rewards
@@ -245,34 +249,34 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _shooterOutsideBox(self):
         ret_val = not self.shooter_box.contains(self.pos[self.shooter_id])
-        if ret_val:
-            print("Shooter outside box!")
+        # if ret_val:
+            # print("Shooter outside box!")
         return ret_val
 
     def _defenderOutsideBox(self):
         ret_val = not self.defender_box.contains(self.pos[self.defender_id])
-        if ret_val:
-            print("Defender outside box!")
+        # if ret_val:
+        #     print("Defender outside box!")
         return ret_val
 
     def _goalScored(self):
         ret_val = self.goal_box.contains(self._getBallState()[0:3])
-        if ret_val:
-            print("Goal scored!")
+        # if ret_val:
+        #     print("Goal scored!")
         return ret_val
 
     def _ballOutOfBounds(self):
         ball_pos = self._getBallState()[0:3]
         ret_val = not self.field_box.contains(ball_pos) and not self._goalScored()
-        if ret_val:
-            print("Ball out of bounds!")
+        # if ret_val:
+        #     print("Ball out of bounds!")
         return ret_val
 
     def _ballStationary(self):
         ball_vel = self._getBallState()[10:13]
         ret_val = (np.linalg.norm(ball_vel) < 1e-6) and self.ball_launched
-        if ret_val:
-            print("Ball stationary!")
+        # if ret_val:
+        #     print("Ball stationary!")
         return ret_val
 
     def _shooterCrashed(self):
@@ -283,9 +287,30 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _timeExpired(self):
         ret_val = self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC
-        if ret_val:
-            print("Timer expired!")
+        # if ret_val:
+        #     print("Timer expired!")
         return ret_val
+
+    def _computeAttitudeReward(self, rpy):
+        max_roll_pitch = np.pi/6
+        reward = 0
+        if np.abs(rpy[0]) > max_roll_pitch:
+            reward += -1*np.abs(rpy[0])
+        else:
+            reward += 2*(1 - np.abs(rpy[0])/max_roll_pitch)
+        if np.abs(rpy[1]) > max_roll_pitch:
+            reward += -1*np.abs(rpy[1])
+        else:
+            reward += max_roll_pitch - np.abs(rpy[1])
+        return reward
+
+    def _shooterAttitudeReward(self):
+        rpy = self.rpy[self.shooter_id]
+        return self._computeAttitudeReward(rpy)
+
+    def _defenderAttitudeReward(self):
+        rpy = self.rpy[self.defender_id]
+        return self._computeAttitudeReward(rpy)
 
     def _computeDone(self):
         """
@@ -446,7 +471,7 @@ class ShootAndDefend(BaseMultiagentAviary):
     def _launchBall(self):
         if self.ball_launched:
             return
-        print("Ball launched!!")
+        # print("Ball launched!!")
         shooter_state = self._getDroneStateVector(self.shooter_id)
         R_gs2b = np.array(
             pb.getMatrixFromQuaternion(shooter_state[3:7])
@@ -463,12 +488,11 @@ class ShootAndDefend(BaseMultiagentAviary):
             self.shooter_id,
             physicsClientId=self.CLIENT
         )
-        print("Shooter vel:", shooter_vel)
+        # print("Shooter vel:", shooter_vel)
         shooter_vel = np.array(shooter_vel)
         ball_force_unit = shooter_vel/(np.linalg.norm(shooter_vel) + 1e-6)
-        ball_force = 50*ball_force_unit
-        print("Ball's pybullet ID:", self.ball_id)
-        print("Force on ball:", ball_force)
+        ball_force = self.space_multiplier*100*ball_force_unit
+        # print("Force on ball:", ball_force)
 
         pb.applyExternalForce(
             self.ball_id,

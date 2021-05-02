@@ -86,6 +86,11 @@ if __name__ == "__main__":
     config["num_workers"] = 4
     config["framework"] = "torch"
     config["env"] = "shoot-and-defend-v0"
+    config["train_batch_size"] = 28800
+    config["sgd_minibatch_size"] = 28800//8
+    config["lr"] = 1e-4
+    config["gamma"] = 0.9995
+    config["num_sgd_iter"] = 10
     config["multiagent"] = {
         "policies_to_train": ["shooter", "defender"],
         "policies": {

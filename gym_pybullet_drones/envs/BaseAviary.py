@@ -101,7 +101,6 @@ class BaseAviary(gym.Env):
             Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
 
         """
-        print("num drones:", num_drones)
         #### Constants #############################################
         self.G = 9.8
         self.RAD2DEG = 180/np.pi
@@ -484,7 +483,6 @@ class BaseAviary(gym.Env):
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.CLIENT)
         #### Load ground plane, drone and obstacles models #########
         self.PLANE_ID = p.loadURDF("plane.urdf", physicsClientId=self.CLIENT)
-        print(self.INIT_RPYS)
         self.DRONE_IDS = np.array(
             [
                 p.loadURDF(

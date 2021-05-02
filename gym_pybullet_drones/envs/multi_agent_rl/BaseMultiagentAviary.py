@@ -74,7 +74,7 @@ class BaseMultiagentAviary(BaseAviary, MultiAgentEnv):
         dynamics_attributes = True if act in [ActionType.DYN, ActionType.ONE_D_DYN] else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 60
+        self.EPISODE_LEN_SEC = 180
         print("Default timeout time:", self.EPISODE_LEN_SEC)
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:

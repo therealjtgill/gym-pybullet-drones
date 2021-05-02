@@ -35,7 +35,7 @@ from gym_pybullet_drones.envs.multi_agent_rl.ShootAndDefend import ShootAndDefen
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
 def select_policy(agent_id):
-    if agent_id == 0:
+    if agent_id == 1:
         return "defender"
     else:
         return "shooter"

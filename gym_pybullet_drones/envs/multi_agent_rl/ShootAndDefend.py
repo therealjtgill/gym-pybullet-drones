@@ -60,45 +60,43 @@ class ShootAndDefend(BaseMultiagentAviary):
         """
 
         num_drones = 2
-        self.space_multiplier = space_multiplier
-        self.defender_id = 0
-        self.shooter_id = 1
+
+        self.shooter_id = 0
+        self.defender_id = 1
         self.ball_id = -1
-        
-        self.field_box = spaces.Box(
-            high=self.space_multiplier*np.array([1.0, 2.0, 3]),
-            low=self.space_multiplier*np.array([-1.0, -2.0, 0.0]),
-            dtype=np.float32
-        )
+        self.space_multiplier = space_multiplier
+
+        box_size_increaser = np.array([self.space_multiplier, self.space_multiplier, 1])
 
         self.defender_box = spaces.Box(
-            high=self.space_multiplier*np.array([0.75, 2.0, 3]),
-            low=self.space_multiplier*np.array([-0.75, 0.5, 0.0]),
+            high=box_size_increaser*np.array([0.75, 2.0, 3]),
+            low=box_size_increaser*np.array([-0.75, 0.5, 0.0]),
             dtype=np.float32
         )
 
         self.shooter_box = spaces.Box(
-            high=self.space_multiplier*np.array([0.75, -0.5, 3]),
-            low=self.space_multiplier*np.array([-0.75, -2.0, 0.0]),
-            dtype=np.float32
-        )
-
-        self.goal_box = spaces.Box(
-            high=self.space_multiplier*np.array([0.6, 5.0, 2]),
-            low=self.space_multiplier*np.array([-0.6, 2.0, 0]),
+            high=box_size_increaser*np.array([0.75, -0.5, 3]),
+            low=box_size_increaser*np.array([-0.75, -2.0, 0.0]),
             dtype=np.float32
         )
 
         self.rpy_box = spaces.Box(
             high=np.array([np.pi/12, np.pi/12, np.pi]),
             low=np.array([-np.pi/12, -np.pi/12, -np.pi]),
-            # high=np.zeros(3),
-            # low=np.zeros(3),
+            dtype=np.float32
+        )
+        
+        self.field_box = spaces.Box(
+            high=box_size_increaser*np.array([1.0, 2.0, 3]),
+            low=box_size_increaser*np.array([-1.0, -2.0, 0.0]),
             dtype=np.float32
         )
 
-        defender_pos = self.defender_box.sample()
-        shooter_pos = self.shooter_box.sample()
+        self.goal_box = spaces.Box(
+            high=box_size_increaser*np.array([0.6, 5.0, 2]),
+            low=box_size_increaser*np.array([-0.6, 2.0, 0]),
+            dtype=np.float32
+        )
 
         self.ball_launched = False
         self.done_funcs = [
@@ -112,11 +110,14 @@ class ShootAndDefend(BaseMultiagentAviary):
             self._timeExpired,
         ]
 
+        defender_pos = self.defender_box.sample()
+        shooter_pos = self.shooter_box.sample()
+
         super().__init__(
             drone_model=drone_model,
             num_drones=num_drones,
             neighbourhood_radius=neighbourhood_radius,
-            initial_xyzs=np.vstack([defender_pos, shooter_pos]),
+            initial_xyzs=np.vstack([shooter_pos, defender_pos]),
             initial_rpys=np.vstack([self.rpy_box.sample(), self.rpy_box.sample()]),
             physics=Physics.PYB,
             freq=freq,
@@ -204,9 +205,10 @@ class ShootAndDefend(BaseMultiagentAviary):
 
         """
         rewards = {}
-        shooter_rewards = 1*self._defenderOutsideBox() + \
+        shooter_rewards = \
+            0*self._defenderOutsideBox() + \
+            0*self._defenderCrashed() + \
             5*self._goalScored() + \
-            1*self._defenderCrashed() + \
             -10*self._shooterCrashed() + \
             -10*self._shooterOutsideBox() + \
             -3*self._ballOutOfBounds() + \
@@ -214,8 +216,9 @@ class ShootAndDefend(BaseMultiagentAviary):
             -8*self._timeExpired() + \
             1e-2*self._shooterAttitudeReward()
 
-        defender_rewards = 1*self._shooterOutsideBox() + \
-            1*self._shooterCrashed() + \
+        defender_rewards = \
+            0*self._shooterOutsideBox() + \
+            0*self._shooterCrashed() + \
             -5*self._goalScored() + \
             -10*self._defenderCrashed() + \
             -10*self._defenderOutsideBox() + \
@@ -236,8 +239,8 @@ class ShootAndDefend(BaseMultiagentAviary):
         defender_rpy = self.rpy_box.sample()
         shooter_rpy = self.rpy_box.sample()
         self.ball_launched = False
-        self.INIT_XYZS = np.vstack([defender_pos, shooter_pos])
-        self.INIT_RPYS = np.vstack([defender_rpy, shooter_rpy])
+        self.INIT_XYZS = np.vstack([shooter_pos, defender_pos])
+        self.INIT_RPYS = np.vstack([shooter_rpy, defender_rpy])
         super(ShootAndDefend, self).reset()
         return self._computeObs()
 
@@ -249,14 +252,14 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _shooterOutsideBox(self):
         ret_val = not self.shooter_box.contains(self.pos[self.shooter_id])
-        # if ret_val:
-            # print("Shooter outside box!")
+        if ret_val:
+            print("Shooter outside box!")
         return ret_val
 
     def _defenderOutsideBox(self):
         ret_val = not self.defender_box.contains(self.pos[self.defender_id])
-        # if ret_val:
-        #     print("Defender outside box!")
+        if ret_val:
+            print("Defender outside box!")
         return ret_val
 
     def _goalScored(self):
@@ -301,7 +304,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         if np.abs(rpy[1]) > max_roll_pitch:
             reward += -1*np.abs(rpy[1])
         else:
-            reward += max_roll_pitch - np.abs(rpy[1])
+            reward += 2*(1 - np.abs(rpy[1])/max_roll_pitch)
         return reward
 
     def _shooterAttitudeReward(self):
@@ -326,6 +329,8 @@ class ShootAndDefend(BaseMultiagentAviary):
         dones = [f() for f in self.done_funcs]
         done = {i: any(dones) for i in range(self.NUM_DRONES)}
         done["__all__"] = True if True in done.values() else False
+        if done["__all__"]:
+            print("Num steps:", self.step_counter)
         return done
 
     ################################################################################
@@ -432,6 +437,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         Kinematic states for each drone and the ball.
         """
         obs_12 = np.zeros((self.NUM_DRONES + 1,12))
+        # for i in self.DRONE_IDS:
         for i in range(self.NUM_DRONES):
             obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
             obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)

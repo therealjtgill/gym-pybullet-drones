@@ -193,7 +193,7 @@ if __name__ == "__main__":
         #### Sync the simulation ###################################
         if ARGS.gui:
             # sync(i, START, env.TIMESTEP)
-            time.sleep(1/240)
+            time.sleep(128/240)
 
         if done["__all__"]:
             print(done)

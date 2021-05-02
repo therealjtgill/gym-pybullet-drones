@@ -28,7 +28,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         field_dims: np.array=np.array([4, 4, 4]),
         shooter_box_dims: np.array=np.array([1, 4, 4]),
         defender_box_dims: np.array=np.array([1, 4, 4]),
-        space_multiplier: float=1
+        space_multiplier: float=2
     ):
         """
         Initialization of a multi-agent RL environment.
@@ -444,10 +444,10 @@ class ShootAndDefend(BaseMultiagentAviary):
         ball_state = np.zeros(20)
         if not self.ball_launched:
             shooter_state = self._getDroneStateVector(self.shooter_id)
-            R_gs2b = np.array(
+            R_b2gs = np.array(
                 pb.getMatrixFromQuaternion(shooter_state[3:7])
             ).reshape((3,3))
-            ball_pos = 1.5*R_gs2b[:, 0]*self.L + shooter_state[0:3]
+            ball_pos = 1.5*R_b2gs[:, 0]*self.L + shooter_state[0:3]
             ball_state = shooter_state
             ball_state[0:3] = ball_pos
         else:
@@ -473,10 +473,10 @@ class ShootAndDefend(BaseMultiagentAviary):
             return
         # print("Ball launched!!")
         shooter_state = self._getDroneStateVector(self.shooter_id)
-        R_gs2b = np.array(
+        R_b2gs = np.array(
             pb.getMatrixFromQuaternion(shooter_state[3:7])
         ).reshape((3,3))
-        ball_pos = 1.5*R_gs2b[:, 0]*self.L + shooter_state[0:3]
+        ball_pos = 1.5*R_b2gs[:, 0]*self.L + shooter_state[0:3]
         self.ball_id = pb.loadURDF("sphere2.urdf",
             ball_pos,
             pb.getQuaternionFromEuler([0,0,0]),
@@ -484,14 +484,14 @@ class ShootAndDefend(BaseMultiagentAviary):
             physicsClientId=self.CLIENT
         )
         pb.changeDynamics(self.ball_id, -1, mass=0.1)
-        shooter_vel, _ = pb.getBaseVelocity(
-            self.shooter_id,
-            physicsClientId=self.CLIENT
-        )
-        # print("Shooter vel:", shooter_vel)
-        shooter_vel = np.array(shooter_vel)
-        ball_force_unit = shooter_vel/(np.linalg.norm(shooter_vel) + 1e-6)
-        ball_force = self.space_multiplier*100*ball_force_unit
+        # shooter_vel, _ = pb.getBaseVelocity(
+        #     self.shooter_id,
+        #     physicsClientId=self.CLIENT
+        # )
+        # # print("Shooter vel:", shooter_vel)
+        # shooter_vel = np.array(shooter_vel)
+        # ball_force_unit = shooter_vel/(np.linalg.norm(shooter_vel) + 1e-6)
+        ball_force = self.space_multiplier*100*R_b2gs[:, 0]
         # print("Force on ball:", ball_force)
 
         pb.applyExternalForce(

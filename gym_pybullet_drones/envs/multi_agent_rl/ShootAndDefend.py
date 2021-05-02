@@ -185,8 +185,8 @@ class ShootAndDefend(BaseMultiagentAviary):
         return spaces.Dict(
             {
                 i: spaces.Box(
-                    low=np.array([-1,-1,0, -1,-1,-1, -1,-1,-1, -1,-1,-1]*3),
-                    high=np.array([1,1,1, 1,1,1, 1,1,1, 1,1,1]*3),
+                    low=np.array([-1]*(12 + 12 + 6)),
+                    high=np.array([1]*(12 + 12 + 6)),
                     dtype=np.float32
                 )
                 for i in range(self.NUM_DRONES)
@@ -436,14 +436,18 @@ class ShootAndDefend(BaseMultiagentAviary):
         """
         Kinematic states for each drone and the ball.
         """
-        obs_12 = np.zeros((self.NUM_DRONES + 1,12))
+        obs_12 = np.zeros((self.NUM_DRONES,12))
         # for i in self.DRONE_IDS:
         for i in range(self.NUM_DRONES):
             obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
             obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
-        obs_12[-1, :] = self._getBallObs()
+        obs_ball = self._getBallObs()[[0, 1, 2, 7, 8, 9]]
         # Flatten out the observations made by each drone.
-        obs_dict = {i: np.reshape(obs_12, -1) for i in range(self.NUM_DRONES)}
+        obs_dict = {
+            i: np.concatenate(
+                [np.reshape(obs_12, -1), obs_ball]
+            ) for i in range(self.NUM_DRONES)
+        }
         return obs_dict
 
     def _getBallState(self):

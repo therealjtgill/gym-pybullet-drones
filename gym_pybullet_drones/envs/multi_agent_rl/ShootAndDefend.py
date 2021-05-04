@@ -81,8 +81,8 @@ class ShootAndDefend(BaseMultiagentAviary):
         )
 
         self.rpy_box = spaces.Box(
-            high=np.array([np.pi/12, np.pi/12, np.pi]),
-            low=np.array([-np.pi/12, -np.pi/12, -np.pi]),
+            high=0*np.array([np.pi/12, np.pi/12, np.pi]),
+            low=0*np.array([-np.pi/12, -np.pi/12, -np.pi]),
             dtype=np.float32
         )
         

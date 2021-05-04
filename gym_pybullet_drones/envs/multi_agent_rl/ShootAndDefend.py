@@ -81,8 +81,8 @@ class ShootAndDefend(BaseMultiagentAviary):
         )
 
         self.rpy_box = spaces.Box(
-            high=0*np.array([np.pi/12, np.pi/12, np.pi]),
-            low=0*np.array([-np.pi/12, -np.pi/12, -np.pi]),
+            high=np.array([np.pi/60, np.pi/60, 0.0]),
+            low=np.array([-np.pi/60, -np.pi/60, -0.0]),
             dtype=np.float32
         )
         
@@ -208,7 +208,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         shooter_rewards = \
             0*self._defenderOutsideBox() + \
             0*self._defenderCrashed() + \
-            5*self._goalScored() + \
+            500*self._goalScored() + \
             -10*self._shooterCrashed() + \
             -10*self._shooterOutsideBox() + \
             -10*self._ballOutOfBounds() + \
@@ -219,7 +219,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         defender_rewards = \
             0*self._shooterOutsideBox() + \
             0*self._shooterCrashed() + \
-            -5*self._goalScored() + \
+            -500*self._goalScored() + \
             -10*self._defenderCrashed() + \
             -10*self._defenderOutsideBox() + \
             10*self._ballOutOfBounds() + \
@@ -264,8 +264,8 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _goalScored(self):
         ret_val = self.goal_box.contains(self._getBallState()[0:3])
-        # if ret_val:
-        #     print("Goal scored!")
+        if ret_val:
+            print("Goal scored!")
         return ret_val
 
     def _ballOutOfBounds(self):

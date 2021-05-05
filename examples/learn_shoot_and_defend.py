@@ -50,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument('--record_video',       default=False,      type=str2bool,      help='Whether to record a video (default: False)', metavar='')
     parser.add_argument('--aggregate',          default=True,       type=str2bool,      help='Whether to aggregate physics steps (default: False)', metavar='')
     parser.add_argument('--simulation_freq_hz', default=240,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
-    parser.add_argument('--control_freq_hz',    default=48,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
+    parser.add_argument('--control_freq_hz',    default=100,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
     ARGS = parser.parse_args()
 

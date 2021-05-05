@@ -80,6 +80,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             dtype=np.float32
         )
 
+        # Zero attitude initially
         self.rpy_box = spaces.Box(
             high=np.array([np.pi/60, np.pi/60, 0.0]),
             low=np.array([-np.pi/60, -np.pi/60, -0.0]),
@@ -204,6 +205,9 @@ class ShootAndDefend(BaseMultiagentAviary):
             The reward value for each drone.
 
         """
+        # Smooth reward for shooting ball towards goal, cosine similarity.
+        # Replace ball out of bounds penalty for shooter with smooth reward.
+        # Reward shooter for collision with ball?
         rewards = {}
         shooter_rewards = \
             0*self._defenderOutsideBox() + \
@@ -211,7 +215,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             500*self._goalScored() + \
             -10*self._shooterCrashed() + \
             -10*self._shooterOutsideBox() + \
-            -10*self._ballOutOfBounds() + \
+            # -10*self._ballOutOfBounds() + \
             -5*self._ballStationary() + \
             -8*self._timeExpired() + \
             1e-2*self._shooterAttitudeReward()
@@ -222,7 +226,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             -500*self._goalScored() + \
             -10*self._defenderCrashed() + \
             -10*self._defenderOutsideBox() + \
-            10*self._ballOutOfBounds() + \
+            # 10*self._ballOutOfBounds() + \
             5*self._ballStationary() + \
             -8*self._timeExpired() + \
             1e-2*self._defenderAttitudeReward()

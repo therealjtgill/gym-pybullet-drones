@@ -57,7 +57,7 @@ if __name__ == "__main__":
     parser.add_argument('--plot',               default=True,       type=str2bool,      help='Whether to plot the simulation results (default: True)', metavar='')
     parser.add_argument('--aggregate',          default=True,       type=str2bool,      help='Whether to aggregate physics steps (default: False)', metavar='')
     parser.add_argument('--simulation_freq_hz', default=240,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
-    parser.add_argument('--control_freq_hz',    default=48,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
+    parser.add_argument('--control_freq_hz',    default=100,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
     ARGS = parser.parse_args()
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         if ARGS.checkpoint is not None:
             action = {
                 env.shooter_id: shooter_policy.compute_single_action(obs[env.shooter_id])[0],
-                env.defender_id: defender_policy.compute_single_action(obs[env.shooter_id])[0]
+                env.defender_id: defender_policy.compute_single_action(obs[env.defender_id])[0]
             }
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         #### Sync the simulation ###################################
         if ARGS.gui:
             # sync(i, START, env.TIMESTEP)
-            time.sleep(128/240)
+            time.sleep(12/240)
 
         if done["__all__"]:
             print(done)

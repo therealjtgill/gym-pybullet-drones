@@ -17,7 +17,9 @@ tar -czvf gym-pybullet-drones.tar.gz \
 	
 	
 # Build the docker image
-docker build -t connorfuhrman/gym-pybullet-drones:draft .
+docker build -t connorfuhrman/gym-pybullet-drones:latest .
+
+docker push connorfuhrman/gym-pybullet-drones:latest
 
 # Remove the tarball
 rm gym-pybullet-drones.tar.gz

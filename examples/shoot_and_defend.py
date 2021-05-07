@@ -153,8 +153,8 @@ if __name__ == "__main__":
     CTRL_EVERY_N_STEPS = int(np.floor(env.SIM_FREQ/ARGS.control_freq_hz))
     # Action of [0, 0, 0, 0] puts the drone into a hover position
     action = {
-        0: np.array([0,0,0,0]),
-        1: np.array([0,0,0,0, 0]),
+        0: np.array([0,0,0,0,0]),
+        1: np.array([0,0,0,0]),
     }
     done = {"__all__": False}
     START = time.time()
@@ -173,6 +173,8 @@ if __name__ == "__main__":
         obs, reward, done, info = env.step(action)
 
         # print("Obs out of environment:", obs)
+        if i >= 250:
+            action[0][4] = 1
         #### Compute control at the desired frequency ##############
         if i % CTRL_EVERY_N_STEPS == 0:
             #### Compute control for the current way point #############

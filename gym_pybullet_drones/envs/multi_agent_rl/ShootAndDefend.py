@@ -82,8 +82,8 @@ class ShootAndDefend(BaseMultiagentAviary):
 
         # Zero attitude initially
         self.rpy_box = spaces.Box(
-            high=np.array([np.pi/60, np.pi/60, 0.0]),
-            low=np.array([-np.pi/60, -np.pi/60, -0.0]),
+            high=np.array([0*np.pi/60, 0*np.pi/60, np.pi/2]),
+            low=np.array([0*-np.pi/60, 0*-np.pi/60, np.pi/2]),
             dtype=np.float32
         )
         
@@ -215,10 +215,11 @@ class ShootAndDefend(BaseMultiagentAviary):
             500*self._goalScored() + \
             -10*self._shooterCrashed() + \
             -10*self._shooterOutsideBox() + \
-            # -10*self._ballOutOfBounds() + \
+            0*-10*self._ballOutOfBounds() + \
             -5*self._ballStationary() + \
             -8*self._timeExpired() + \
-            1e-2*self._shooterAttitudeReward()
+            1e-2*self._shooterAttitudeReward() + \
+            1e-2*self._shooterBallDistanceReward()
 
         defender_rewards = \
             0*self._shooterOutsideBox() + \
@@ -226,10 +227,11 @@ class ShootAndDefend(BaseMultiagentAviary):
             -500*self._goalScored() + \
             -10*self._defenderCrashed() + \
             -10*self._defenderOutsideBox() + \
-            # 10*self._ballOutOfBounds() + \
+            0*10*self._ballOutOfBounds() + \
             5*self._ballStationary() + \
             -8*self._timeExpired() + \
-            1e-2*self._defenderAttitudeReward()
+            1e-2*self._defenderAttitudeReward() + \
+            1e-2*self._defenderBallDistanceReward()
 
         rewards[self.shooter_id] = shooter_rewards
         rewards[self.defender_id] = defender_rewards
@@ -318,6 +320,19 @@ class ShootAndDefend(BaseMultiagentAviary):
     def _defenderAttitudeReward(self):
         rpy = self.rpy[self.defender_id]
         return self._computeAttitudeReward(rpy)
+
+    def _computeBallDistanceToGoalReward(self):
+        ball_pos = self._getBallState()[0:3]
+        goal_center_pos = (self.goal_box.high + self.goal_box.low)/2.0
+        ball_dist_to_goal = np.linalg.norm(ball_pos - goal_center_pos)
+        field_length = self.field_box.high[1] - self.field_box.low[1]
+        return ball_dist_to_goal/field_length
+
+    def _shooterBallDistanceReward(self):
+        return self._computeBallDistanceToGoalReward()
+
+    def _defenderBallDistanceReward(self):
+        return -1.0*self._computeBallDistanceToGoalReward()
 
     def _computeDone(self):
         """

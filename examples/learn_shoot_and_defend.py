@@ -52,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument('--simulation_freq_hz', default=240,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
     parser.add_argument('--control_freq_hz',    default=100,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
+    parser.add_argument('--lstm',               default=False,                         help='Use an LSTM? (default: False)')
     ARGS = parser.parse_args()
 
     #### Initialize the simulation #############################
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     action_space = env.action_space
     register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
     config = ppo.DEFAULT_CONFIG.copy()
-    config["num_workers"] = 4
+    config["num_workers"] = 16
     config["framework"] = "torch"
     config["env"] = "shoot-and-defend-v0"
     config["train_batch_size"] = 28800
@@ -101,7 +102,8 @@ if __name__ == "__main__":
                 {
                     "model": {
                         "fcnet_hiddens": [128, 64],
-                        "fcnet_activation": "relu"
+                        "fcnet_activation": "relu",
+                        "use_lstm" : ARGS.lstm
                     }
                 }
             ),
@@ -112,13 +114,19 @@ if __name__ == "__main__":
                 {
                     "model": {
                         "fcnet_hiddens": [128, 64],
-                        "fcnet_activation": "relu"
+                        "fcnet_activation": "relu",
+                        "use_lstm" : ARGS.lstm
                     }
                 }
             )
         },
         "policy_mapping_fn": select_policy
     }
+    if ARGS.lstm:
+    	print("Using LSTM!!")
+    	
+    print(config)
+    
     agent = ppo.PPOTrainer(config)
     if ARGS.checkpoint:
         agent.restore(ARGS.checkpoint)

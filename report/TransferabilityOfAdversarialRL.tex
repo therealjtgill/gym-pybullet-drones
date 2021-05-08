@@ -2,6 +2,8 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{amsmath}
+\usepackage{footnote}
+\makesavenoteenv{tabular}
 
 % Title content
 \title{Transferability of Adversarial Reinforcement Learning}
@@ -106,15 +108,57 @@ Figure~\ref{fig:ray_blockdiagram} shows the relationship between Ray, the gym en
   \label{fig:ray_blockdiagram}
 \end{figure}
 
+\noindent 
+The complete Ray configuration is shown in Appendix~\ref{app:ray_config}.  
 
-\newpage
+TODO: Discuss model configuration such as LSTM and what the different models were.
+
+\subsection{Containerization via Singularity and Deployment on High Performance Computing (HPC) Cluster}\label{container_hpc}
+In order to effectively train multiple RL agents with varying model architectures, a GPU-enabled  high-performance computing (HPC) cluster is all-but necessary. 
+The University of Arizona (UArizona) provides three distinct HPC clusters with varying CPU/GPU/RAM capabilities. 
+We utilize the El Gato supercomputer cluster which boasts 131 compute nodes each with 2 Xeon E5-2650v2 8-core (Ivy Bridge) CPUs for a total of 16 cores/node running at 2.66GHz. 
+90 of El Gato’s nodes are equipped with an NVIDIA K20X (47 of the 90 nodes are equipped with 2x GPUs) and have 256GB memory. 
+The remaining 41 CPU-only nodes are equipped with 64GB memory. \\ 
+
+\noindent
+In order to reliably deploy our learning framework across platforms and operating systems, the entire gym was containerized using Singularity \cite{singularity}. 
+Containers are independent, cross-platform software packages which incorporate any dependancies into the container image and effectuate reliably reproducible, i.e., exactly the same, operation between host platforms, i.e., hardware or software. 
+The \texttt{gym-pybullet-drones} gym is designed and tested on Ubuntu 18.04 and therefore a container was created based on the Ubuntu 18.04 image which, despite El Gato running CentOS 6 \footnote{El Gato, despite being the oldest and least capable of the UArizona's three HPC clusters, was chosen because the Ocelote and Puma HPC clusters both run CentOS 7 which has a kernel too new for compatibility with Ubuntu 18.04}, allows for training to take place on an Ubuntu operating system \footnote{Note that instillation of the required Python packages for the gym environment was unsuccessful within a virtual environment on the native CentOS 6 or 7 host and therefore containerization is absolutely required for our application}. 
+Singularity, however, is a Linux-only program \footnote{At the time of this writing there are beta releases for MacOS} and many scientists and researchers run MacOS or Windows so Singularity was designed to "bootstrap" from a preexisting Docker \cite{docker} container as Docker supports Linux container execution on MacOS, Windows, and Linux but requires a daemon for execution (which does not easily integrate into a shared resource system such as an HPC) and does not easily utilize GPU resources. 
+The \textit{Shoot and Defend} environment within the \texttt{gym-pybullet-drones} gym was therefore containerized first into a Docker container \footnote{This was chosen simply to test execution on a MacOS host system before deployment on the HPC} \footnote{The Docker container is available via \href{https://hub.docker.com/repository/docker/connorfuhrman/gym-pybullet-drones}{connorfuhrman/gym-pybullet-drones}} then bootstrapped into a Singularity container. 
+
+\clearpage 
 \appendix
 \section{Agent Rewards}\label{app:rewards}
-\begin{tabular}{ | l | l | }
+\subsection{Defender Agent Rewards}
+\begin{tabular}{ | c | l | }
 \hline
 Value & Condition \\ \hline
-test & test \\ \hline
+0 & The shooter moves outside it's designated box \\ \hline
+0 & The shooter crashes \\ \hline
+-500 & The shooter scores a goal \\ \hline 
+-10 & The defender crashes \\ \hline
+-10 & The defender moves outside it's designated box \\ \hline 
+0 & The ball goes out of bounds \\ \hline 
+5 & The ball is stationary \footnote{I.e., the ball was shot, did not enter the goal, and the ball's velocity is below a small threshold, e.g., $10^{-6}$} \\ \hline
+-8 & The alloted time per episode is exceeded \\ \hline 
+$10^{-2}$ & Reward to encourage level flight \\ \hline
+\end{tabular}
 
+\subsection{Shooter Agent Rewards}
+\begin{tabular}{ | c | l | }
+\hline
+Value & Condition \\ \hline
+0 & The defender moves outside it's designated box \\ \hline
+0 & The defender crashes \\ \hline
+500 & The shooter scores a goal \\ \hline 
+-10 & The shooter crashes \\ \hline
+-10 & The shooter moves outside it's designated box \\ \hline 
+0 & The ball goes out of bounds \\ \hline 
+-5 & The ball is stationary  \\ \hline
+-8 & The alloted time per episode is exceeded \\ \hline 
+$10^{-2}$ & Reward to encourage level flight \\ \hline
+$10^{-2}$ & Reward to encourage the ball to move towards the goal \footnote{This reward encourages the shooter to shoot rather than not} \\ \hline
 \end{tabular}
 
 \section{Ray PPO Configuration} \label{app:ray_config}

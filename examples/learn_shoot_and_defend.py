@@ -53,6 +53,7 @@ if __name__ == "__main__":
     parser.add_argument('--control_freq_hz',    default=100,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
     parser.add_argument('--lstm',               default=False,                         help='Use an LSTM? (default: False)')
+    parser.add_argument('--num_workers', default=16, required=False, help='The number of workers ray should use to perform rollouts. Defaults to 16.')
     ARGS = parser.parse_args()
 
     #### Initialize the simulation #############################
@@ -84,7 +85,7 @@ if __name__ == "__main__":
     action_space = env.action_space
     register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
     config = ppo.DEFAULT_CONFIG.copy()
-    config["num_workers"] = 16
+    config["num_workers"] = args.num_workers
     config["framework"] = "torch"
     config["env"] = "shoot-and-defend-v0"
     config["train_batch_size"] = 28800

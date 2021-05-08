@@ -21,7 +21,7 @@ Such attacks are especially interesting because the adversarial attacker does no
 This method of adversarial attack is critical to understand more deeply because real-world RL agents may only interact with each other and the environment around them in a physically realistic fashion and may not artificially perturb the observation space of another agent. 
 This work investigates the transferability of such adversarial policies between various model architectures via the \textit{Shoot and Defend} zero-sum game. 
 Quadcopter agents are trained to be either the shooter, who's goal is to shoot a ball into a goal, or a defender, who's goal is to keep the ball out of the goal. 
-There are two shooter agents trained with distinctly different model architectures and two keeper agents, one of which is trained adversarially against one shooter agent but \texttt{not} the other. 
+There are two shooter agents trained with distinctly different model architectures and two keeper agents, one of which is trained adversarially against one shooter agent but \textbf{not} the other. 
 We find that ...
 \end{abstract}
 
@@ -29,7 +29,8 @@ We find that ...
 
 \section{Introduction}\label{sec:intro}
 Adversarial attacks against neural network classifiers \cite{Szegedy2014} and (deep) reinforcement learning (RL) \cite{Gleave2019} has been shown effective via adversarial perturbations of the victim model's input, e.g., altering pixel values for an image classifier or perturbing an observation space for an RL model. 
-However, such attacks are artificial when considering real-world RL agents as an adversarial attacker cannot directly alter image pixel or observation space values but can only interact naturally with the environment and the victim model, e.g., an adversarial attack against an autonomous unmanned aerial vehicle (UAV) cannot access the UAV's perception equipment directly to alter measurement values nor can it alter the environment in a non-physically realistic manner.  \\ \\
+However, such attacks are artificial when considering real-world RL agents as an adversarial attacker cannot directly alter, e.g., image pixel or observation space values, but can only interact naturally with the environment and the victim model, e.g., an adversarial attack against an autonomous unmanned aerial vehicle (UAV) cannot access the UAV's perception equipment directly to alter measurement values nor can it alter the environment in a non-physically realistic manner but can only conduct physically-realistic actions, e.g., a flight pattern, which serves to attack and exploit an agent's policy.  \\
+
 \noindent 
 Work done in \cite{Gleave2019} showed that an adversarial policy was effective in multiple zero-sum games, including \textit{Shoot and Defend} where the \texttt{shooter} agent attempts to shoot a ball into a goal while the \texttt{keeper} agent seeks to keep the ball out of the goal. 
 The adversarial attacker, the keeper agent, demonstrated significantly different activations than the normal models and was overall successful in each game by manipulating only it's own body position to exploit weaknesses in the victim's (the shooter agent) policy.
@@ -67,7 +68,7 @@ The \textit{Shoot and Defend} environment is configured as in Figure~\ref{fig:sa
   \caption{Diagram depicting the \textit{Shoot and Defend} environment. Note this is a top-down view as the shooter and defender may travel in the vertical direction.}
   \label{fig:sad_env}
 \end{figure}
-The shooter and defender agents are each constrained to remain in their respective areas and recivee a punishment if this boundary is violated. 
+The shooter and defender agents are each constrained to remain in their respective areas and receive a punishment if this boundary is violated. 
 The shooter agent receives a reward if the ball enters the goal area and a penalty if the ball goes out of bounds or becomes stationary. 
 Both agents also receive penalties for crashing and other undesirable behavior. 
 The exact rewards and conditions are shown in Appendix~\ref{app:rewards}. \\
@@ -75,8 +76,8 @@ The exact rewards and conditions are shown in Appendix~\ref{app:rewards}. \\
 \noindent
 The observation space for each agent is the physical properties of all physical objects in the scene, i.e., the position, attitude, velocity, and angular velocity. 
 However, in order to reduce the complexity and without loss of generality the observations for the ball object are simply position and velocity as the ball's attitude and angular velocity \footnote{The ball is shot with a force of 50N and there is no external force applied by moving air. The ball is then essentially only affected by gravity and would not experience a curved trajectory as in a windy environment} do not play as significant a role in the game as the position and velocity. 
-Therefore, the dimensionality for the observation space of each agent is a 30-length vector. 
-The action space for the defender agent is an 8-vector representing the mean and standard deviation of a Gaussian distribution by which motor revolution per minute (RPM) values are sampled. 
+Therefore, the dimensionality for the observation space of each agent is a 30-length vector for both the shooter and defender agents. 
+The action space for the defender agent is an 8-vector representing the mean and standard deviation of a Gaussian distribution by which motor revolution per minute (RPM) values are sampled as this encourages early exploration as the standard deviation decreases over training iterations. 
 The shooter agent adds an additional mean and standard deviation pair which indicates that the shooter agent should shoot the ball. 
 If the value of this sampled distribution is above a threshold, the shooter launches the ball in the drone platform's current orientation \footnote{Note that the ball is instantiated as a model at the time of shooting and the shooter agent does not carry the ball beforehand.}. 
 
@@ -125,7 +126,15 @@ In order to reliably deploy our learning framework across platforms and operatin
 Containers are independent, cross-platform software packages which incorporate any dependancies into the container image and effectuate reliably reproducible, i.e., exactly the same, operation between host platforms, i.e., hardware or software. 
 The \texttt{gym-pybullet-drones} gym is designed and tested on Ubuntu 18.04 and therefore a container was created based on the Ubuntu 18.04 image which, despite El Gato running CentOS 6 \footnote{El Gato, despite being the oldest and least capable of the UArizona's three HPC clusters, was chosen because the Ocelote and Puma HPC clusters both run CentOS 7 which has a kernel too new for compatibility with Ubuntu 18.04}, allows for training to take place on an Ubuntu operating system \footnote{Note that instillation of the required Python packages for the gym environment was unsuccessful within a virtual environment on the native CentOS 6 or 7 host and therefore containerization is absolutely required for our application}. 
 Singularity, however, is a Linux-only program \footnote{At the time of this writing there are beta releases for MacOS} and many scientists and researchers run MacOS or Windows so Singularity was designed to "bootstrap" from a preexisting Docker \cite{docker} container as Docker supports Linux container execution on MacOS, Windows, and Linux but requires a daemon for execution (which does not easily integrate into a shared resource system such as an HPC) and does not easily utilize GPU resources. 
-The \textit{Shoot and Defend} environment within the \texttt{gym-pybullet-drones} gym was therefore containerized first into a Docker container \footnote{This was chosen simply to test execution on a MacOS host system before deployment on the HPC} \footnote{The Docker container is available via \href{https://hub.docker.com/repository/docker/connorfuhrman/gym-pybullet-drones}{connorfuhrman/gym-pybullet-drones}} then bootstrapped into a Singularity container. 
+The \textit{Shoot and Defend} environment within the \texttt{gym-pybullet-drones} gym was therefore containerized first into a Docker container \footnote{This was chosen simply to test execution on a MacOS host system before deployment on the HPC} \footnote{The Docker container is available via \href{https://hub.docker.com/repository/docker/connorfuhrman/gym-pybullet-drones}{connorfuhrman/gym-pybullet-drones}} then bootstrapped into a Singularity container which was used for all training. 
+
+\section{Results} \label{sec:results}
+TODO: this whole section ... 
+
+\section{Conclusion} \label{sec:conclusion}
+TODO: this whole section ... 
+\subsection{Future Work} \label{subsec:future_work}
+TODO: maybe keep this if we get any interesting results ... 
 
 \clearpage 
 \appendix

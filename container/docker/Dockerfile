@@ -1,4 +1,4 @@
-from ubuntu:18.04
+from ubuntu:20.04
 # Build container based on Ubuntu 18.04 which is listed as supported/tested 
 # on the repo's README
 

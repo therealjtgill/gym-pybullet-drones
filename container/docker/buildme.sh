@@ -10,7 +10,6 @@ repo since the tarball is too large for GitHub.
 
 # Tar the repo above this script
 tar -czvf gym-pybullet-drones.tar.gz \
-	--exclude=../../../gym-pybullet-drones/.git/ \
 	--exclude=../../../gym-pybullet-drones/ros2 \
 	--exclude=../../../gym-pybullet-drones/container\
 	../../../gym-pybullet-drones \

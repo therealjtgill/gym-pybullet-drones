@@ -24,4 +24,5 @@ cd video* && sh ffmpeg_png2mp4.sh
 
 # Run learn.py --rllib to check PPO 
 cd /gym-pybullet-drones
-python3.7 examples/learn.py --rllib=True 
+#python3.7 examples/learn.py --rllib=True 
+python3.7 examples/learn_shoot_and_defend.py --lstm=True

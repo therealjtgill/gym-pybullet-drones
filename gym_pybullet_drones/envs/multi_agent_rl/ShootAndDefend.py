@@ -82,8 +82,8 @@ class ShootAndDefend(BaseMultiagentAviary):
 
         # Zero attitude initially
         self.rpy_box = spaces.Box(
-            high=np.array([np.pi/60, np.pi/60, 0.0]),
-            low=np.array([-np.pi/60, -np.pi/60, -0.0]),
+            high=np.array([0*np.pi/60, 0*np.pi/60, np.pi/2]),
+            low=np.array([0*-np.pi/60, 0*-np.pi/60, np.pi/2]),
             dtype=np.float32
         )
         
@@ -215,10 +215,11 @@ class ShootAndDefend(BaseMultiagentAviary):
             500*self._goalScored() + \
             -10*self._shooterCrashed() + \
             -10*self._shooterOutsideBox() + \
-            # -10*self._ballOutOfBounds() + \
+            0*-10*self._ballOutOfBounds() + \
             -5*self._ballStationary() + \
             -8*self._timeExpired() + \
-            1e-2*self._shooterAttitudeReward()
+            1e-2*self._shooterAttitudeReward() + \
+            1e-2*self._shooterBallDistanceReward()
 
         defender_rewards = \
             0*self._shooterOutsideBox() + \
@@ -226,7 +227,7 @@ class ShootAndDefend(BaseMultiagentAviary):
             -500*self._goalScored() + \
             -10*self._defenderCrashed() + \
             -10*self._defenderOutsideBox() + \
-            # 10*self._ballOutOfBounds() + \
+            0*10*self._ballOutOfBounds() + \
             5*self._ballStationary() + \
             -8*self._timeExpired() + \
             1e-2*self._defenderAttitudeReward()
@@ -275,15 +276,15 @@ class ShootAndDefend(BaseMultiagentAviary):
     def _ballOutOfBounds(self):
         ball_pos = self._getBallState()[0:3]
         ret_val = not self.field_box.contains(ball_pos) and not self._goalScored()
-        # if ret_val:
-        #     print("Ball out of bounds!")
+        if ret_val:
+            print("Ball out of bounds!")
         return ret_val
 
     def _ballStationary(self):
         ball_vel = self._getBallState()[10:13]
         ret_val = (np.linalg.norm(ball_vel) < 1e-6) and self.ball_launched
-        # if ret_val:
-        #     print("Ball stationary!")
+        if ret_val:
+            print("Ball stationary!")
         return ret_val
 
     def _shooterCrashed(self):
@@ -294,8 +295,8 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _timeExpired(self):
         ret_val = self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC
-        # if ret_val:
-        #     print("Timer expired!")
+        if ret_val:
+            print("Timer expired!")
         return ret_val
 
     def _computeAttitudeReward(self, rpy):
@@ -318,6 +319,16 @@ class ShootAndDefend(BaseMultiagentAviary):
     def _defenderAttitudeReward(self):
         rpy = self.rpy[self.defender_id]
         return self._computeAttitudeReward(rpy)
+
+    def _computeBallDistanceToGoalReward(self):
+        ball_pos = self._getBallState()[0:3]
+        goal_center_pos = (self.goal_box.high + self.goal_box.low)/2.0
+        ball_dist_to_goal = np.linalg.norm(ball_pos - goal_center_pos)
+        field_length = self.field_box.high[1] - self.field_box.low[1] + 0.5
+        return field_length - ball_dist_to_goal
+
+    def _shooterBallDistanceReward(self):
+        return self._computeBallDistanceToGoalReward()
 
     def _computeDone(self):
         """
@@ -505,7 +516,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         # # print("Shooter vel:", shooter_vel)
         # shooter_vel = np.array(shooter_vel)
         # ball_force_unit = shooter_vel/(np.linalg.norm(shooter_vel) + 1e-6)
-        ball_force = self.space_multiplier*100*R_b2gs[:, 0]
+        ball_force = self.space_multiplier*115*R_b2gs[:, 0]
         # print("Force on ball:", ball_force)
 
         pb.applyExternalForce(

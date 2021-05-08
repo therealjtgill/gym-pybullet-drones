@@ -13,13 +13,13 @@
 \maketitle
 
 \begin{abstract}
-It is well known that deep learning and deep reinforcement learning (RL) are vulnerable to adversarial attacks via a model's observations. 
-Recently, it was shown that RL is susceptible to adversarial attacks on the \textit{policy} alone via an attacker trained to develop an adversarial policy. 
-Such attacks are especially interesting because the adversarial attacker does not simply perturb the victim's model's input, i.e., in RL the observation space, but rather choses physically realistic actions such that the victim's policy breaks down. 
-This method of adversarial attack is especially interesting because real-world RL agents may only interact with each other and the environment around them in a physically realistic fashion. 
-This work investigates the transferability of such adversarial policies between various model architectures via a "shoot and defend" type game. 
+It is well known that deep learning and deep reinforcement learning (RL) are vulnerable to adversarial attacks via perturbations applied to a model's input \cite{Szegedy2014}. 
+Recently, it was shown that RL is susceptible to adversarial attacks on the \textit{policy} alone via an attacker trained to develop an adversarial policy \cite{Gleave2019}. 
+Such attacks are especially interesting because the adversarial attacker does not simply perturb the victim's model's input, i.e., the observation space in the domain of RL, but rather choses physically realistic actions such that the victim's policy breaks down. 
+This method of adversarial attack is critical to understand more deeply because real-world RL agents may only interact with each other and the environment around them in a physically realistic fashion and may not artificially perturb the observation space of another agent. 
+This work investigates the transferability of such adversarial policies between various model architectures via the \textit{Shoot and Defend} zero-sum game. 
 Quadcopter agents are trained to be either the shooter, who's goal is to shoot a ball into a goal, or a defender, who's goal is to keep the ball out of the goal. 
-There are two shooter agents trained with varying model architectures and two keeper agents, one of which is trained adversarially against one shooter agent but \texttt{not} the other. 
+There are two shooter agents trained with distinctly different model architectures and two keeper agents, one of which is trained adversarially against one shooter agent but \texttt{not} the other. 
 We find that ...
 \end{abstract}
 
@@ -27,10 +27,9 @@ We find that ...
 
 \section{Introduction}\label{sec:intro}
 Adversarial attacks against neural network classifiers \cite{Szegedy2014} and (deep) reinforcement learning (RL) \cite{Gleave2019} has been shown effective via adversarial perturbations of the victim model's input, e.g., altering pixel values for an image classifier or perturbing an observation space for an RL model. 
-However, such attacks are artificial when considering real-world RL agents as an adversarial attacker cannot directly alter image pixel or observation space values but can only interact naturally with the environment and the victim model, e.g., an adversarial attack against an autonomous unmanned aerial vehicle (UAV) cannot access the UAV's perception equipment directly to alter measurement values nor can it alter the environment in a non-physically realistic manner. 
-\\
+However, such attacks are artificial when considering real-world RL agents as an adversarial attacker cannot directly alter image pixel or observation space values but can only interact naturally with the environment and the victim model, e.g., an adversarial attack against an autonomous unmanned aerial vehicle (UAV) cannot access the UAV's perception equipment directly to alter measurement values nor can it alter the environment in a non-physically realistic manner.  \\ \\
 \noindent 
-Work done in \cite{Gleave2019} showed that an adversarial policy was effective in multiple zero-sum games, including shoot and defend where the \textit{shooter} agent attempts to shoot a ball into a goal while the \textit{keeper} agent seeks to keep the ball out of the goal. 
+Work done in \cite{Gleave2019} showed that an adversarial policy was effective in multiple zero-sum games, including \textit{Shoot and Defend} where the \texttt{shooter} agent attempts to shoot a ball into a goal while the \texttt{keeper} agent seeks to keep the ball out of the goal. 
 The adversarial attacker, the keeper agent, demonstrated significantly different activations than the normal models and was overall successful in each game by manipulating only it's own body position to exploit weaknesses in the victim's (the shooter agent) policy.
 Videos showing the results from \cite{Gleave2019} are available \href{https://adversarialpolicies.github.io/}{online} and show that adversarial policies are more effective in higher-dimensional spaces such as humanoid models over lower-dimensional spaces such as ants. 
 
@@ -44,7 +43,7 @@ Videos showing the results from \cite{Gleave2019} are available \href{https://ad
 The adversarial agents in \cite{Gleave2019} were given unlimited black-box access to the victim's policy, $\pi_v$, but were not given any white-box access to model weights or activations. 
 The victim model's policy was frozen and actions were sampled from the stochastic policy such that $a_v$ is a sample of the stochastic policy $\pi_v(. | s)$ while the adversary developed a policy $\pi_a$ such that $\pi_a$ maximizes the discounted sum of rewards. 
 Agents trained adversarially demonstrate reliable domination of the vicim models, winning upwards of 90\% of games in most cases. 
-However, it is interesting to note that when the victim is "blind" to the attacker, i.e., the victim's observations corresponding to the attacker's position is set statically to a typical initial value, its performance increases significantly from losing over 80\% of games to winning 99\% of games in \textit{You Shall Not Pass} (this game demonstrates the phenomenon best but the trend exists in other games). 
+However, it is interesting to note that when the victim is "blind" to the attacker, i.e., the victim's observations corresponding to the attacker's position is set statically to a typical initial value, its performance increases significantly from losing over 80\% of games to winning 99\% of games in \textit{You Shall Not Pass} (this game demonstrates the phenomenon best but the trend exists in other games \cite{Gleave2019} ). 
 
 \section{Methods}\label{sec:methods}
 The following sections discuss the gym environment, RL framework, and deployment on the high performance computing (HPC) cluster at the University of Arizona.
@@ -56,7 +55,8 @@ The environment, \texttt{gym-pybullet-drones}, (original repository available on
 \noindent
 The drone model utilized in this work is the \href{https://www.bitcraze.io/documentation/hardware/crazyflie_2_1/crazyflie_2_1-datasheet.pdf}{Bitcraze Cracyflie 2.1} as this model ships with the gym environment. 
 The quadcopter itself is a small open-source development platform which weight under 30g and is intended for education, research, and in particular swarm applications. 
-Note, however, that this model in particular are not integral to this work but was chosen simply because they were readily available.
+Note, however, that this drone model in particular is not integral to this work but was chosen simply because it was readily available and already integrated/tested within the gym environment.
+The use of quadcopters was chosen because \cite{Gleave2019}  showed that agents were more susceptible to adversarial attacked in higher dimensional spaces and quadcopters, as they are aerial vehicles, introduce a vertical component. 
 
 \subsection{Shoot and Defend Environment}\label{subsec:sad_env}
 The \textit{Shoot and Defend} environment is configured as in Figure~\ref{fig:sad_env}. 
@@ -80,9 +80,9 @@ If the value of this sampled distribution is above a threshold, the shooter laun
 
 \subsection{Training Methodology}\label{subsec:train_methods}
 Both the shooter and defender agents are trained using Proximal Policy Optimization (PPO) \cite{Schulman2017} via the Ray RLlib library \cite{Liang2017} which provides RL-specific libraries and functionality atop the Ray API for distributed operation.
-PPO was chosen over, e.g, Q networks, due to its ability to handle continuous action spaces such as the quadcopter's RPM commands. 
+A policy gradient method, in particular PPO, was chosen over Q networks due to the method's ability to handle continuous action spaces, i.e., the quadcopter's motor RPM commands. 
 Policy gradient methods have been demonstrated to achieve state-of-the-art performance using deep neural networks in multiple application areas including, but not limited to, Go, Atari and other video games, and 3D locomotion \cite{ppo_site}. 
-PPO addresses issues with various other policy optimization methods such as sensitivity to step size and poor sample efficiency while avoiding overcomplicated implementations, e.g., Actor-Critic with Experience Replay (ACER) \cite{wang2017sample} which introduces more implementation complexity via off-policy correction and a replay buffer while showing only marginal improvement over PPO in OpenAI's Atari benchmark \cite{ppo_site}, or algorithms which are unable to share parameters between the policy and value function or auxiliary losses such as dropout (e.g., Atari games or other domains heavily-reliant on visual input \cite{ppo_site}), e.g, Trust Region Policy Optimization (TRPO) \cite{schulman2017trust}. 
+PPO addresses issues with various other policy optimization methods such as sensitivity to step size and poor sample efficiency while avoiding overcomplicated implementations, e.g., Actor-Critic with Experience Replay (ACER) \cite{wang2017sample} which introduces more implementation complexity via off-policy correction and a replay buffer while showing only marginal improvement over PPO in OpenAI's Atari benchmark \cite{ppo_site}, or algorithms, e.g, Trust Region Policy Optimization (TRPO) \cite{schulman2017trust}, which are unable to share parameters between the policy and value function or auxiliary losses such as dropout (e.g., Atari games or other domains heavily-reliant on visual input \cite{ppo_site}). 
 PPO utilizes the objective function
 \begin{equation} \label{eq:ppo_loss}
 L^{CLIP}(\theta) = \hat{E}_t[min(r_t(\theta) \hat{A}_t , clip(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t]
@@ -97,7 +97,8 @@ where
 \end{itemize}
 
 \noindent
-We utilize the PPO implementation via the Ray RLlib \cite{ray_ppo} as the Ray library provides abstractions for parallelization and distributed workflows and the RLlib library contains a suite of highly parallelizable GPU-enabled algorithms which are (mostly) compatible with both TensorFlow and PyTorch. 
+We utilize the PPO implementation via Ray RLlib \cite{ray_ppo} as the Ray library provides abstractions for parallelization and distributed workflows and the RLlib library contains a suite of highly parallelizable GPU-enabled algorithms which are (mostly) compatible with both TensorFlow and PyTorch. 
+Figure~\ref{fig:ray_blockdiagram} shows the relationship between Ray, the gym environment, and RLlib algorithms. 
 
 \begin{figure}
   \includegraphics[width=\linewidth]{imgs/ray_blockdiagram}
@@ -105,10 +106,16 @@ We utilize the PPO implementation via the Ray RLlib \cite{ray_ppo} as the Ray li
   \label{fig:ray_blockdiagram}
 \end{figure}
 
+
 \newpage
 \appendix
 \section{Agent Rewards}\label{app:rewards}
-TODO 
+\begin{tabular}{ | l | l | }
+\hline
+Value & Condition \\ \hline
+test & test \\ \hline
+
+\end{tabular}
 
 \section{Ray PPO Configuration} \label{app:ray_config}
 TODO

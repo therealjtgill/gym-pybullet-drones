@@ -85,7 +85,7 @@ if __name__ == "__main__":
     action_space = env.action_space
     register_env("shoot-and-defend-v0", lambda _: ShootAndDefend())
     config = ppo.DEFAULT_CONFIG.copy()
-    config["num_workers"] = args.num_workers
+    config["num_workers"] = ARGS.num_workers
     config["framework"] = "torch"
     config["env"] = "shoot-and-defend-v0"
     config["train_batch_size"] = 28800

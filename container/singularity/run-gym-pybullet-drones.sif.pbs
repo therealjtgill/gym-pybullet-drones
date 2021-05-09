@@ -19,7 +19,7 @@ printf "Running continer: ... Output beteween '=' from inside container \n"
 printf "===================================\n"
 
 # Run the contianer
-cat run_in_container.sh | singularity exec --writable gym-pybullet-drones-sandbox sh
+cat run_in_container.sh | singularity exec --writable ~/gym-pybullet-drones-sandbox sh
 
 printf "===================================\n"
 printf "Container run done!! \n"

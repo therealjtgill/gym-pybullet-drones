@@ -53,7 +53,7 @@ if __name__ == "__main__":
     parser.add_argument('--control_freq_hz',    default=100,         type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--checkpoint',         required=False,                         help='Path to ray checkpoint that can be re-loaded.')
     parser.add_argument('--lstm',               default=False,                         help='Use an LSTM? (default: False)')
-    parser.add_argument('--num_workers', default=16, required=False, help='The number of workers ray should use to perform rollouts. Defaults to 16.')
+    parser.add_argument('--num_workers', default=16, required=False, help='The number of workers ray should use to perform rollouts. Defaults to 16.', type=int)
     ARGS = parser.parse_args()
 
     #### Initialize the simulation #############################

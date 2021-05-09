@@ -82,8 +82,8 @@ class ShootAndDefend(BaseMultiagentAviary):
 
         # Zero attitude initially
         self.rpy_box = spaces.Box(
-            high=np.array([0*np.pi/60, 0*np.pi/60, np.pi/2 + np.pi/12]),
-            low=np.array([0*-np.pi/60, 0*-np.pi/60, np.pi/2 - np.pi/12]),
+            high=np.array([np.pi/12, np.pi/12, np.pi/2 + np.pi/6]),
+            low=np.array([-np.pi/12, -np.pi/12, np.pi/2 - np.pi/6]),
             dtype=np.float32
         )
         
@@ -210,27 +210,28 @@ class ShootAndDefend(BaseMultiagentAviary):
         # Reward shooter for collision with ball?
         rewards = {}
         shooter_rewards = \
-            0*self._defenderOutsideBox() + \
-            0*self._defenderCrashed() + \
-            500*self._goalScored() + \
-            -10*self._shooterCrashed() + \
-            -10*self._shooterOutsideBox() + \
-            0*-10*self._ballOutOfBounds() + \
-            -5*self._ballStationary() + \
-            -8*self._timeExpired() + \
-            1e-2*self._shooterAttitudeReward() + \
-            1e-2*self._shooterBallDistanceReward()
+            0      * self._defenderOutsideBox() + \
+            0      * self._defenderCrashed() + \
+            500    * self._goalScored() + \
+            -10    * self._shooterCrashed() + \
+            -10    * self._shooterOutsideBox() + \
+            0*-10  * self._ballOutOfBounds() + \
+            -5     * self._ballStationary() + \
+            -8     * self._timeExpired() + \
+            1e-2   * self._shooterAttitudeReward() + \
+            0*1e-2 * self._shooterBallDistanceReward()
 
         defender_rewards = \
-            0*self._shooterOutsideBox() + \
-            0*self._shooterCrashed() + \
-            -500*self._goalScored() + \
-            -10*self._defenderCrashed() + \
-            -10*self._defenderOutsideBox() + \
-            0*10*self._ballOutOfBounds() + \
-            5*self._ballStationary() + \
-            -8*self._timeExpired() + \
-            1e-2*self._defenderAttitudeReward()
+            0    * self._shooterOutsideBox() + \
+            0    * self._shooterCrashed() + \
+            -500 * self._goalScored() + \
+            -10  * self._defenderCrashed() + \
+            -10  * self._defenderOutsideBox() + \
+            0*10 * self._ballOutOfBounds() + \
+            5    * self._ballStationary() + \
+            -8   * self._timeExpired() + \
+            1e-2 * self._defenderAttitudeReward() + \
+            500  * self._defenderTouchedBall()
 
         rewards[self.shooter_id] = shooter_rewards
         rewards[self.defender_id] = defender_rewards
@@ -329,6 +330,24 @@ class ShootAndDefend(BaseMultiagentAviary):
 
     def _shooterBallDistanceReward(self):
         return self._computeBallDistanceToGoalReward()
+
+    def _defenderBallDistanceReward(self):
+        ball_pos = self._getBallState()[0:3]
+        defender_dist_to_ball = np.linalg.norm(
+            ball_pos - self.pos[self.defender_id]
+        )
+        # Defender distance to ball 
+        reward = self.ball_launched*(
+            1.0/(defender_dist_to_ball + 0.5) - 5/3
+        )
+        return reward
+
+    def _defenderTouchedBall(self):
+        ball_pos = self._getBallState()[0:3]
+        defender_dist_to_ball = np.linalg.norm(
+            ball_pos - self.pos[self.defender_id]
+        )
+        return defender_dist_to_ball < 1e-3
 
     def _computeDone(self):
         """

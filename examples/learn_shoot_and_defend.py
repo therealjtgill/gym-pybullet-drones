@@ -105,7 +105,8 @@ if __name__ == "__main__":
                     "model": {
                         "fcnet_hiddens": [128, 64],
                         "fcnet_activation": "relu",
-                        "use_lstm" : ARGS.lstm
+                        "use_lstm" : ARGS.lstm,
+                        "lstm_cell_size": 128,
                     }
                 }
             ),
@@ -117,7 +118,8 @@ if __name__ == "__main__":
                     "model": {
                         "fcnet_hiddens": [128, 64],
                         "fcnet_activation": "relu",
-                        "use_lstm" : ARGS.lstm
+                        "use_lstm" : ARGS.lstm,
+                        "lstm_cell_size": 128,
                     }
                 }
             )

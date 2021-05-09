@@ -162,19 +162,34 @@ if __name__ == "__main__":
     done = {"__all__": False}
     START = time.time()
     obs = env.reset()
+    state = {
+        env.shooter_id: shooter_policy.get_initial_state(),
+        env.defender_id: shooter_policy.get_initial_state(),
+    }
     # for i in range(0, int(ARGS.duration_sec*env.SIM_FREQ), AGGR_PHY_STEPS):
+    num_steps = 0
     while not done["__all__"]:
+        print("taking a step:", num_steps)
 
         #### Make it rain rubber ducks #############################
         # if i/env.SIM_FREQ>5 and i%10==0 and i/env.SIM_FREQ<10: p.loadURDF("duck_vhacd.urdf", [0+random.gauss(0, 0.3),-0.5+random.gauss(0, 0.3),3], p.getQuaternionFromEuler([random.randint(0,360),random.randint(0,360),random.randint(0,360)]), physicsClientId=PYB_CLIENT)
         if ARGS.checkpoint is not None:
-            action = {
-                env.shooter_id: shooter_policy.compute_single_action(obs[env.shooter_id])[0],
-                env.defender_id: defender_policy.compute_single_action(obs[env.defender_id])[0]
+            policies_out = {
+                env.shooter_id: shooter_policy.compute_single_action(
+                    obs[env.shooter_id],
+                    state[env.shooter_id]
+                ),
+                env.defender_id: defender_policy.compute_single_action(
+                    obs[env.defender_id],
+                    state[env.defender_id]
+                ),
             }
+            print("output from policies:", policies_out)
+            action = {agent_id: out[0] for agent_id, out in policies_out.items()}
+            state = {agent_id: out[1] for agent_id, out in policies_out.items()}
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
-
+        num_steps += 1
         # print("Obs out of environment:", obs)
         if i >= 250:
             action[0][4] = 1

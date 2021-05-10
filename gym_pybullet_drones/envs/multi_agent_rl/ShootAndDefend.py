@@ -111,8 +111,15 @@ class ShootAndDefend(BaseMultiagentAviary):
             self._timeExpired,
         ]
 
+        self.session_rewards = {
+            self.shooter_id: 0,
+            self.defender_id: 0,
+        }
+
         defender_pos = self.defender_box.sample()
         shooter_pos = self.shooter_box.sample()
+
+        self.termination_reason = ""
 
         super().__init__(
             drone_model=drone_model,
@@ -235,6 +242,8 @@ class ShootAndDefend(BaseMultiagentAviary):
 
         rewards[self.shooter_id] = shooter_rewards
         rewards[self.defender_id] = defender_rewards
+        self.session_rewards[self.shooter_id] += shooter_rewards
+        self.session_rewards[self.defender_id] += defender_rewards
         return rewards
 
     ################################################################################
@@ -248,6 +257,11 @@ class ShootAndDefend(BaseMultiagentAviary):
         self.INIT_XYZS = np.vstack([shooter_pos, defender_pos])
         self.INIT_RPYS = np.vstack([shooter_rpy, defender_rpy])
         super(ShootAndDefend, self).reset()
+        self.session_rewards = {
+            self.shooter_id: 0,
+            self.defender_id: 0,
+        }
+        self.termination_reason = ""
         return self._computeObs()
 
     def _preprocessAction(self, actions):
@@ -381,7 +395,17 @@ class ShootAndDefend(BaseMultiagentAviary):
             Dictionary of empty dictionaries.
 
         """
-        return {i: {} for i in range(self.NUM_DRONES)}
+        for func in self.done_funcs:
+            if func():
+                self.termination_reason = func.func_name
+                break
+
+        return {
+            i: {
+                "termination_reason": self.termination_reason
+            }
+            for i in range(self.NUM_DRONES)
+        }
 
     ################################################################################
 

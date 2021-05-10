@@ -397,7 +397,7 @@ class ShootAndDefend(BaseMultiagentAviary):
         """
         for func in self.done_funcs:
             if func():
-                self.termination_reason = func.func_name
+                self.termination_reason = func.__name__
                 break
 
         return {
